@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Management Laboratory
 
-## Getting Started
+Gamified student points and achievements platform for a school team project. Students earn virtual **Nuts**, unlock achievements, and follow the class leaderboard. Teachers manage students and award points.
 
-First, run the development server:
+## Stack
+
+- Next.js (App Router) + TypeScript
+- Tailwind CSS
+- Supabase (auth + PostgreSQL — prepared, not wired yet)
+- Lucide icons
+
+## Live site (GitHub Pages)
+
+https://davidtsymbalov.github.io/-Management-laboratory-diary/
+
+Deploys automatically from `main` via `.github/workflows/deploy-github-pages.yml` (static `next export`).
+
+## Getting started
 
 ```bash
+npm install
+cp .env.example .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Local builds do not use the GitHub Pages `basePath`. CI sets `GITHUB_PAGES=true` so assets resolve under `/-Management-laboratory-diary/`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Scripts
 
-## Learn More
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the development server |
+| `npm run build` | Production static export (`out/`) |
+| `npm run start` | Not used for GitHub Pages (static host) |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | TypeScript (`tsc --noEmit`) |
 
-To learn more about Next.js, take a look at the following resources:
+## Supabase setup (manual)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Create a project at [supabase.com](https://supabase.com).
+2. Copy `.env.example` to `.env.local`.
+3. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from Project Settings → API.
+4. Restart `npm run dev`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Authentication and database tables are intentionally not implemented yet. Helpers live in `src/lib/supabase/`.
 
-## Deploy on Vercel
+## Notes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- The landing page includes a **demo preview** of a student dashboard. That data is static sample content only.
+- Sign-in / Get started routes show setup states until Supabase env vars are present — no fake auth.
