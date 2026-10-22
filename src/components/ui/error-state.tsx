@@ -11,8 +11,8 @@ type ErrorStateProps = {
 };
 
 export function ErrorState({
-  title = "Something went wrong",
-  description = "Please try again. If the problem continues, refresh the page or come back later.",
+  title = "Что-то пошло не так",
+  description = "Попробуйте ещё раз. Если проблема останется, обновите страницу или зайдите позже.",
   action,
   className,
 }: ErrorStateProps) {
@@ -31,7 +31,7 @@ export function ErrorState({
       <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
         {description}
       </p>
-      {action ? <div className="mt-5">{action}</div> : null}
+      {action ? <div className="mt-5 flex flex-wrap justify-center gap-2">{action}</div> : null}
     </Card>
   );
 }

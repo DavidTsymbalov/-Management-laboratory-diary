@@ -5,11 +5,16 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export const metadata: Metadata = {
-  title: "Sign in",
+  title: "Вход",
 };
 
 export default function SignInPage() {
@@ -19,56 +24,62 @@ export default function SignInPage() {
     <Container className="py-12 sm:py-16">
       <div className="mx-auto max-w-md space-y-6">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">Sign in</h1>
+          <h1 className="font-display text-3xl font-bold tracking-tight">Вход</h1>
           <p className="mt-2 text-muted-foreground">
-            Access your Management Laboratory account when authentication is connected.
+            Войдите в аккаунт Management Laboratory, когда подключение будет
+            готово.
           </p>
         </div>
 
         {configured ? (
           <Card>
             <CardHeader>
-              <CardTitle>Ready for Supabase auth</CardTitle>
+              <CardTitle>Авторизация скоро</CardTitle>
               <CardDescription>
-                Environment variables are set. Wire up the auth flow in a later task —
-                no fake sign-in is implemented here.
+                Окружение Supabase настроено. Сама форма входа появится в
+                следующем этапе — пока вход намеренно отключён.
               </CardDescription>
             </CardHeader>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Электронная почта</Label>
                 <Input
                   id="email"
                   name="email"
                   type="email"
+                  autoComplete="email"
                   placeholder="you@school.edu"
                   disabled
                 />
               </div>
               <div>
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">Пароль</Label>
                 <Input
                   id="password"
                   name="password"
                   type="password"
+                  autoComplete="current-password"
                   placeholder="••••••••"
                   disabled
                 />
               </div>
               <Button type="button" disabled className="w-full">
-                Sign in (coming soon)
+                Войти (скоро)
               </Button>
             </div>
           </Card>
         ) : (
           <EmptyState
             icon={<KeyRound className="h-5 w-5" aria-hidden />}
-            title="Authentication not configured"
-            description="Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local to prepare Supabase sign-in. See .env.example for the variable names."
+            title="Вход пока недоступен"
+            description="Авторизация через Supabase ещё не подключена. Пока можно изучить демо на главной странице — это превью продукта."
             action={
-              <Button href="/get-started" variant="secondary">
-                View setup steps
-              </Button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button href="/" variant="secondary">
+                  На главную
+                </Button>
+                <Button href="/get-started">Как это работает</Button>
+              </div>
             }
           />
         )}

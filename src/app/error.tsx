@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
 
 export default function Error({
-  error,
   reset,
 }: {
   error: Error & { digest?: string };
@@ -14,15 +13,17 @@ export default function Error({
   return (
     <Container className="py-16">
       <ErrorState
-        title="We hit a snag"
-        description={
-          error.message ||
-          "Something unexpected happened while loading this page."
-        }
+        title="Что-то пошло не так"
+        description="Не удалось загрузить страницу. Попробуйте ещё раз или вернитесь на главную."
         action={
-          <Button type="button" onClick={reset}>
-            Try again
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button type="button" onClick={reset}>
+              Повторить
+            </Button>
+            <Button href="/" variant="secondary">
+              На главную
+            </Button>
+          </div>
         }
       />
     </Container>

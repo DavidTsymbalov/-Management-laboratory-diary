@@ -9,74 +9,79 @@ import {
   demoAchievements,
   demoLeaderboard,
   demoStudent,
+  formatNuts,
 } from "@/data/demo";
 import { cn } from "@/lib/cn";
 
 export function DashboardPreview() {
+  const earnedCount = demoAchievements.filter((item) => item.earned).length;
+
   return (
     <section aria-labelledby="preview-heading" className="space-y-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Product preview
+            Превью продукта
           </p>
           <h2
             id="preview-heading"
             className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl"
           >
-            A student dashboard, demoed
+            Демо кабинета ученика
           </h2>
           <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-            Sample data only — this is not connected to a live account or
-            database yet.
+            Это только пример данных — пока без подключения к аккаунту и базе.
           </p>
         </div>
         <span className="inline-flex w-fit items-center rounded-full border-2 border-border bg-accent-soft px-3 py-1 text-xs font-semibold uppercase tracking-wide">
-          Demo preview
+          Демо
         </span>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         <Card className="bg-[linear-gradient(160deg,#ffffff_0%,#fff8e8_100%)]">
-          <CardHeader className="mb-6 sm:flex-row sm:items-start sm:justify-between">
-            <div>
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
               <p className="text-sm text-muted-foreground">{demoStudent.className}</p>
-              <CardTitle className="mt-1 text-2xl">{demoStudent.name}</CardTitle>
-              <CardDescription className="mt-2">
-                Track Nuts, badges, and where you stand in class.
-              </CardDescription>
+              <h3 className="mt-1 font-display text-2xl font-semibold tracking-tight">
+                {demoStudent.name}
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Следите за Орешками, значками и местом в классе.
+              </p>
             </div>
-            <div className="mt-4 flex items-center gap-2 rounded-2xl border-2 border-border bg-accent px-4 py-3 shadow-[var(--shadow-card)] sm:mt-0">
+            <div className="flex shrink-0 items-center gap-2 rounded-2xl border-2 border-border bg-accent px-4 py-3 shadow-[var(--shadow-card)]">
               <Nut className="h-5 w-5" aria-hidden />
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide">Nuts</p>
+                <p className="text-xs font-semibold uppercase tracking-wide">Орешки</p>
                 <p className="font-display text-xl font-bold tabular-nums">
-                  {demoStudent.nuts.toLocaleString()}
+                  {formatNuts(demoStudent.nuts)}
                 </p>
               </div>
             </div>
-          </CardHeader>
+          </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl border-2 border-border/15 bg-card p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Class rank
+                Место в классе
               </p>
-              <p className="mt-2 font-display text-3xl font-bold">#{demoStudent.rank}</p>
+              <p className="mt-2 font-display text-3xl font-bold tabular-nums">
+                №{demoStudent.rank}
+              </p>
             </div>
             <div className="rounded-2xl border-2 border-border/15 bg-card p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Achievements
+                Достижения
               </p>
-              <p className="mt-2 font-display text-3xl font-bold">
-                {demoAchievements.filter((item) => item.earned).length}/
-                {demoAchievements.length}
+              <p className="mt-2 font-display text-3xl font-bold tabular-nums">
+                {earnedCount}/{demoAchievements.length}
               </p>
             </div>
           </div>
 
           <div className="mt-6 space-y-3">
-            <h3 className="text-sm font-semibold tracking-tight">Recent achievements</h3>
+            <h3 className="text-sm font-semibold tracking-tight">Недавние достижения</h3>
             <ul className="space-y-2">
               {demoAchievements.map((achievement) => (
                 <li
@@ -84,7 +89,10 @@ export function DashboardPreview() {
                   className="flex items-start gap-3 rounded-xl border-2 border-border/10 bg-card/80 px-3 py-3"
                 >
                   {achievement.earned ? (
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />
+                    <CheckCircle2
+                      className="mt-0.5 h-4 w-4 shrink-0 text-success"
+                      aria-hidden
+                    />
                   ) : (
                     <Circle className="mt-0.5 h-4 w-4 shrink-0 text-muted" aria-hidden />
                   )}
@@ -102,8 +110,8 @@ export function DashboardPreview() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Class leaderboard</CardTitle>
-            <CardDescription>Top students this week (demo)</CardDescription>
+            <CardTitle>Рейтинг класса</CardTitle>
+            <CardDescription>Лидеры этой недели (демо)</CardDescription>
           </CardHeader>
           <ol className="space-y-2">
             {demoLeaderboard.map((entry) => (
@@ -116,23 +124,21 @@ export function DashboardPreview() {
                     : "border-border/10 bg-background/50",
                 )}
               >
-                <div className="flex items-center gap-3">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg border-2 border-border bg-card text-sm font-bold tabular-nums">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border-2 border-border bg-card text-sm font-bold tabular-nums">
                     {entry.rank}
                   </span>
-                  <div>
-                    <p className="text-sm font-semibold">
-                      {entry.name}
-                      {entry.isCurrentUser ? (
-                        <span className="ml-2 text-xs font-medium text-muted-foreground">
-                          you
-                        </span>
-                      ) : null}
-                    </p>
-                  </div>
+                  <p className="truncate text-sm font-semibold">
+                    {entry.name}
+                    {entry.isCurrentUser ? (
+                      <span className="ml-2 text-xs font-medium text-muted-foreground">
+                        вы
+                      </span>
+                    ) : null}
+                  </p>
                 </div>
-                <p className="text-sm font-semibold tabular-nums">
-                  {entry.nuts.toLocaleString()} Nuts
+                <p className="shrink-0 text-sm font-semibold tabular-nums">
+                  {formatNuts(entry.nuts)}
                 </p>
               </li>
             ))}

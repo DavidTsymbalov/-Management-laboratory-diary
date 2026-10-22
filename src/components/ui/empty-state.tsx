@@ -27,7 +27,7 @@ export function EmptyState({
       <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
         {description}
       </p>
-      {action ? <div className="mt-5">{action}</div> : null}
+      {action ? <div className="mt-5 flex flex-wrap justify-center gap-2">{action}</div> : null}
     </Card>
   );
 }

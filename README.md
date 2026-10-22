@@ -1,6 +1,8 @@
 # Management Laboratory
 
-Gamified student points and achievements platform for a school team project. Students earn virtual **Nuts**, unlock achievements, and follow the class leaderboard. Teachers manage students and award points.
+Геймифицированная платформа баллов и достижений для школьного командного проекта. Ученики зарабатывают виртуальные **Орешки**, открывают достижения и следят за рейтингом класса. Учителя управляют учениками и начисляют баллы.
+
+Интерфейс на русском.
 
 ## Stack
 

@@ -4,11 +4,11 @@ import { cn } from "@/lib/cn";
 
 const variants = {
   primary:
-    "bg-accent text-accent-foreground border-border hover:brightness-105",
+    "border-border bg-accent text-accent-foreground shadow-[var(--shadow-card)] hover:brightness-105",
   secondary:
-    "bg-card text-foreground border-border hover:bg-accent-soft/60",
+    "border-border bg-card text-foreground shadow-[var(--shadow-card)] hover:bg-accent-soft/60",
   ghost:
-    "bg-transparent text-foreground border-transparent hover:bg-card hover:border-border",
+    "border-transparent bg-transparent text-foreground shadow-none hover:border-border hover:bg-card hover:shadow-[var(--shadow-card)]",
 } as const;
 
 const sizes = {
@@ -28,7 +28,7 @@ type CommonProps = {
 };
 
 type ButtonAsButton = CommonProps &
-  ButtonHTMLAttributes<HTMLButtonElement> & {
+  Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className" | "children"> & {
     href?: undefined;
   };
 
@@ -47,7 +47,7 @@ export function Button({
 }: ButtonProps) {
   const classes = cn(
     "inline-flex items-center justify-center gap-2 rounded-xl border-2 font-semibold tracking-tight transition duration-150",
-    "shadow-[var(--shadow-card)] active:translate-x-px active:translate-y-px active:shadow-none",
+    "active:translate-x-px active:translate-y-px active:shadow-none",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
     "disabled:pointer-events-none disabled:opacity-50",
     variants[variant],
@@ -56,17 +56,15 @@ export function Button({
   );
 
   if ("href" in props && props.href) {
-    const { href } = props;
     return (
-      <Link href={href} className={classes}>
+      <Link href={props.href} className={classes}>
         {children}
       </Link>
     );
   }
 
-  const buttonProps = props as ButtonAsButton;
   return (
-    <button className={classes} {...buttonProps}>
+    <button className={classes} {...(props as ButtonAsButton)}>
       {children}
     </button>
   );

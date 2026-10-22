@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Rocket } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,80 +9,67 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export const metadata: Metadata = {
-  title: "Get started",
+  title: "Начать",
 };
 
-const steps = [
-  "Create a Supabase project and copy the project URL and anon key.",
-  "Duplicate .env.example to .env.local and fill in the placeholder values.",
-  "Restart the Next.js dev server so environment variables load.",
-  "Implement real authentication and database tables in a follow-up task.",
+const highlights = [
+  {
+    title: "Для учеников",
+    description:
+      "Выполняйте задания, копите Орешки, открывайте достижения и следите за местом в рейтинге класса.",
+  },
+  {
+    title: "Для учителей",
+    description:
+      "Начисляйте баллы, управляйте классом и видьте прогресс учеников в одном спокойном интерфейсе.",
+  },
+  {
+    title: "Что дальше",
+    description:
+      "Регистрация и живые данные появятся после подключения Supabase. Сейчас доступно демо на главной.",
+  },
 ] as const;
 
 export default function GetStartedPage() {
-  const configured = isSupabaseConfigured();
-
   return (
     <Container className="py-12 sm:py-16">
       <div className="mx-auto max-w-2xl space-y-8">
         <div>
           <h1 className="font-display text-3xl font-bold tracking-tight">
-            Get started
+            Начать работу
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Set up Management Laboratory for your class. Account creation will use
-            Supabase — nothing is stored yet.
+            Management Laboratory помогает классу видеть прогресс через Орешки,
+            достижения и рейтинг.
           </p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Setup checklist</CardTitle>
-            <CardDescription>
-              Complete these steps before wiring live student data.
-            </CardDescription>
-          </CardHeader>
-          <ol className="space-y-3">
-            {steps.map((step, index) => (
-              <li
-                key={step}
-                className="flex gap-3 rounded-xl border-2 border-border/10 bg-background/60 px-3 py-3"
-              >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 border-border bg-accent text-sm font-bold">
-                  {index + 1}
-                </span>
-                <p className="text-sm leading-relaxed text-foreground">{step}</p>
-              </li>
-            ))}
-          </ol>
-        </Card>
+        <div className="grid gap-4">
+          {highlights.map((item) => (
+            <Card key={item.title}>
+              <CardHeader className="mb-0">
+                <CardTitle>{item.title}</CardTitle>
+                <CardDescription>{item.description}</CardDescription>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
 
-        {configured ? (
-          <EmptyState
-            icon={<Rocket className="h-5 w-5" aria-hidden />}
-            title="Supabase env detected"
-            description="Public environment variables are present. Next: implement real sign-up and role-based dashboards without mock authentication."
-            action={
+        <EmptyState
+          icon={<Sparkles className="h-5 w-5" aria-hidden />}
+          title="Регистрация скоро"
+          description="Создание аккаунтов ещё в работе. Посмотрите демо кабинета ученика на главной странице — так будет выглядеть продукт."
+          action={
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button href="/">Смотреть демо</Button>
               <Button href="/sign-in" variant="secondary">
-                Go to sign in
+                К странице входа
               </Button>
-            }
-          />
-        ) : (
-          <EmptyState
-            icon={<Rocket className="h-5 w-5" aria-hidden />}
-            title="Waiting on environment setup"
-            description="Copy .env.example to .env.local and add your Supabase project values. Until then, explore the landing page preview."
-            action={
-              <Button href="/" variant="secondary">
-                Back to home
-              </Button>
-            }
-          />
-        )}
+            </div>
+          }
+        />
       </div>
     </Container>
   );

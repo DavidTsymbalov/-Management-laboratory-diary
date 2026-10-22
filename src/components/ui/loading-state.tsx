@@ -6,13 +6,13 @@ type LoadingStateProps = {
 };
 
 export function LoadingState({
-  label = "Loading…",
+  label = "Загрузка…",
   className,
 }: LoadingStateProps) {
   return (
     <div
       className={cn(
-        "flex min-h-40 flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border/40 bg-card/60 p-8 text-center",
+        "flex min-h-40 flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border/30 bg-card/70 p-8 text-center",
         className,
       )}
       role="status"

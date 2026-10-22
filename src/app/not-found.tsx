@@ -6,11 +6,11 @@ export default function NotFound() {
   return (
     <Container className="py-16">
       <EmptyState
-        title="Page not found"
-        description="That route doesn’t exist yet. Head back home to explore Management Laboratory."
+        title="Страница не найдена"
+        description="Такого адреса пока нет. Вернитесь на главную и продолжите знакомство с Management Laboratory."
         action={
           <Button href="/" variant="secondary">
-            Back to home
+            На главную
           </Button>
         }
       />
