@@ -7,9 +7,9 @@ export function Input({ className, ...props }: InputProps) {
   return (
     <input
       className={cn(
-        "h-11 w-full rounded-xl border-2 border-border bg-card px-3.5 text-sm text-foreground shadow-[var(--shadow-card)]",
-        "placeholder:text-muted",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        "h-11 w-full rounded-sm border border-border bg-card px-3.5 text-sm text-[#e5dac3]",
+        "placeholder:text-[#e5dac3]/45",
+        "transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35",
         "disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}

@@ -1,54 +1,40 @@
 # Management Laboratory
 
-Геймифицированная платформа баллов и достижений для школьного командного проекта. Ученики зарабатывают виртуальные **Орешки**, открывают достижения и следят за рейтингом класса. Учителя управляют учениками и начисляют баллы.
+Дашборд **баллов** и **ачивок** для командного проекта №2.
 
-Интерфейс на русском.
+- Список учеников сначала пустой — учитель добавляет и удаляет сам
+- Выдача баллов и ачивок из кабинета учителя
+- Данные в браузере (+ бэкап JSON при необходимости)
 
-## Stack
+Учётные данные учителя заданы в `src/data/seed.ts` (не показываются в интерфейсе).
 
-- Next.js (App Router) + TypeScript
-- Tailwind CSS
-- Supabase (auth + PostgreSQL — prepared, not wired yet)
-- Lucide icons
-
-## Live site (GitHub Pages)
-
-https://davidtsymbalov.github.io/-Management-laboratory-diary/
-
-Deploys automatically from `main` via `.github/workflows/deploy-github-pages.yml` (static `next export`).
-
-## Getting started
+## Локально
 
 ```bash
 npm install
-cp .env.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Откройте http://localhost:3000
 
-Local builds do not use the GitHub Pages `basePath`. CI sets `GITHUB_PAGES=true` so assets resolve under `/-Management-laboratory-diary/`.
+## Сборка под Reg.ru (FTP)
 
-## Scripts
+```bash
+npm run build
+```
 
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Start the development server |
-| `npm run build` | Production static export (`out/`) |
-| `npm run start` | Not used for GitHub Pages (static host) |
-| `npm run lint` | ESLint |
-| `npm run typecheck` | TypeScript (`tsc --noEmit`) |
+Папка `out/` — готовый сайт. Залейте **содержимое** `out/` в `public_html` (или папку сайта) через FTP-клиент Reg.ru.
 
-## Supabase setup (manual)
+Файл `.htaccess` уже лежит в сборке — нужен для Apache на shared-хостинге.
 
-1. Create a project at [supabase.com](https://supabase.com).
-2. Copy `.env.example` to `.env.local`.
-3. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from Project Settings → API.
-4. Restart `npm run dev`.
+## Как пользоваться
 
-Authentication and database tables are intentionally not implemented yet. Helpers live in `src/lib/supabase/`.
+1. Учитель → вход по логину/паролю из `seed.ts`
+2. Начисляйте баллы, выдавайте ачивки
+3. Ученик → ФИО + пароль → личный кабинет
+4. Чтобы перенести данные: «Скачать бэкап» → на новом ПК «Загрузить бэкап»
 
-## Notes
+## Важно про «память»
 
-- The landing page includes a **demo preview** of a student dashboard. That data is static sample content only.
-- Sign-in / Get started routes show setup states until Supabase env vars are present — no fake auth.
+Данные живут **в браузере этого компьютера**.  
+Для урока удобно вести учёт с ноутбука учителя (или один общий ПК) и показывать рейтинг на проекторе. Бэкап JSON — запасной способ не потерять таблицу.

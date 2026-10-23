@@ -1,17 +1,14 @@
 import type { NextConfig } from "next";
 
-const repoName = "-Management-laboratory-diary";
-const isGithubPages = process.env.GITHUB_PAGES === "true";
-
 const nextConfig: NextConfig = {
+  // Static files for Reg.ru / shared hosting (FTP upload of `out/`).
   output: "export",
   trailingSlash: true,
   images: {
     unoptimized: true,
   },
-  // Project site: https://<user>.github.io/<repo>/
-  basePath: isGithubPages ? `/${repoName}` : undefined,
-  assetPrefix: isGithubPages ? `/${repoName}/` : undefined,
+  // Убрать индикатор «N» в углу во время dev
+  devIndicators: false,
   turbopack: {
     rules: {
       "*.css": {
