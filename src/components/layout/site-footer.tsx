@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { ScrambleText } from "@/components/motion/scramble-text";
+import { publicUrl } from "@/lib/public-url";
 
 const PORTFOLIO_URL = "https://davidtsymbalov.github.io/Portfolio.david/";
 const PORTFOLIO_LABEL = PORTFOLIO_URL.replace(/^https?:\/\//, "");
@@ -37,10 +38,10 @@ export function SiteFooter() {
           muted
           loop
           playsInline
-          poster="/media/showreel-poster.jpg"
+          poster={publicUrl("/media/showreel-poster.jpg")}
           aria-hidden
         >
-          <source src="/media/showreel.mp4" type="video/mp4" />
+          <source src={publicUrl("/media/showreel.mp4")} type="video/mp4" />
         </video>
         <div className="uc-footer-video-fade" aria-hidden />
 

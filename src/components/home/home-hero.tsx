@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Container } from "@/components/layout/container";
+import { publicUrl } from "@/lib/public-url";
 import { isStudentLoggedIn, isTeacherLoggedIn } from "@/lib/session";
 
 export function HomeHero() {
@@ -41,22 +42,21 @@ export function HomeHero() {
           muted
           loop
           playsInline
-          poster="/media/hero-poster.jpg"
+          poster={publicUrl("/media/hero-poster.jpg")}
         >
-          <source src="/media/hero.mp4" type="video/mp4" />
+          <source src={publicUrl("/media/hero.mp4")} type="video/mp4" />
         </video>
         <div className="uc-hero-veil" />
         <div className="uc-hero-grain" />
       </div>
 
-      <Container className="relative z-10 flex min-h-[100svh] flex-col justify-between pb-10 pt-24">
-        <div className="flex flex-1 flex-col items-center justify-center text-center">
-          <h1 className="uc-slogan">
-            <span>Management laboratory</span>
-            <span>diary</span>
-          </h1>
-        </div>
+      <h1 className="uc-slogan">
+        <span className="uc-slogan-line">Management</span>
+        <span className="uc-slogan-line uc-slogan-line-2">laboratory</span>
+        <span className="uc-slogan-line uc-slogan-line-3">diary</span>
+      </h1>
 
+      <Container className="uc-hero-bottom relative z-10 flex min-h-[100svh] flex-col justify-end pb-10 pt-24">
         <div className="flex flex-col items-center gap-5 sm:items-end">
           <p className="max-w-sm text-center text-[0.72rem] leading-relaxed tracking-wide text-[#e5dac3] sm:text-right">
             • Кабинет класса: баллы, ачивки, рейтинг.

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Management Laboratory · Diary</title>
+  <style>
+    :root {
+      --bg: #080A0D;
+      --cream: #E5DAC3;
+      --muted: #B8AE98;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--cream);
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      overflow: hidden;
+    }
+    .deck {
+      height: 100%;
+      width: 100%;
+      position: relative;
+    }
+    .slide {
+      display: none;
+      height: 100%;
+      padding: clamp(2rem, 6vw, 4.5rem) clamp(1.5rem, 5vw, 4rem);
+      flex-direction: column;
+      justify-content: center;
+      gap: 1.25rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .slide.active { display: flex; }
+    .bar {
+      width: 28px;
+      height: 6px;
+      background: var(--cream);
+      margin-bottom: 0.25rem;
+    }
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.25rem);
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      line-height: 1.1;
+    }
+    h1.sub {
+      color: var(--muted);
+      font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+      font-weight: 600;
+    }
+    h2 {
+      font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+      font-weight: 700;
+    }
+    .lead {
+      color: var(--muted);
+      font-size: clamp(1rem, 2vw, 1.25rem);
+      line-height: 1.45;
+    }
+    ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      font-size: clamp(1.05rem, 2.2vw, 1.35rem);
+      line-height: 1.4;
+      max-width: 52rem;
+    }
+    ul li::before {
+      content: "";
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: var(--cream);
+      margin-right: 0.85rem;
+      vertical-align: 0.15em;
+      opacity: 0.7;
+    }
+    .cols {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2.5rem;
+      width: 100%;
+      max-width: 52rem;
+    }
+    @media (max-width: 700px) {
+      .cols { grid-template-columns: 1fr; gap: 1.5rem; }
+    }
+    .cols h3 {
+      font-size: 1.1rem;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .cols ul li::before { width: 6px; height: 6px; }
+    .footer {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 1rem clamp(1.5rem, 5vw, 4rem);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+      pointer-events: none;
+    }
+    .nav {
+      position: fixed;
+      right: clamp(1rem, 3vw, 2rem);
+      bottom: 3rem;
+      display: flex;
+      gap: 0.5rem;
+      z-index: 10;
+    }
+    .nav button {
+      background: transparent;
+      border: 1px solid var(--muted);
+      color: var(--cream);
+      width: 44px;
+      height: 44px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      border-radius: 2px;
+    }
+    .nav button:hover { border-color: var(--cream); }
+    .hint {
+      position: fixed;
+      left: clamp(1.5rem, 5vw, 4rem);
+      bottom: 3rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+  <div class="deck" id="deck">
+
+    <section class="slide active">
+      <div class="bar"></div>
+      <h1>MANAGEMENT LABORATORY</h1>
+      <h1 class="sub">DIARY</h1>
+      <p class="lead">MVP: баллы и ачивки класса<br>Командный проект №2</p>
+    </section>
+
+    <section class="slide">
+      <div class="bar"></div>
+      <h2>Проблема</h2>
+      <ul>
+        <li>Учителю сложно быстро вести учёт мотивации в классе</li>
+        <li>Ученик не видит прогресс в одном месте</li>
+        <li>Нужен простой MVP без тяжёлой админки</li>
+      </ul>
+    </section>
+
+    <section class="slide">
+      <div class="bar"></div>
+      <h2>Гипотезы</h2>
+      <ul>
+        <li>H1. Ученикам важно видеть баллы и место в рейтинге</li>
+        <li>H2. Учителю удобнее выдавать баллы сразу нескольким</li>
+        <li>H3. Ачивки усиливают мотивацию сильнее, чем только цифры</li>
+        <li>H4. Статика в браузере достаточна для урока / демо</li>
+      </ul>
+    </section>
+
+    <section class="slide">
+      <div class="bar"></div>
+      <h2>Процесс</h2>
+      <ul>
+        <li>Учитель → вход → кабинет</li>
+        <li>Добавляет учеников (ФИО | пароль)</li>
+        <li>Выбирает учеников → выдаёт баллы / ачивки</li>
+        <li>Ученик → вход → кабинет (баллы, место, ачивки)</li>
+        <li>Графики и рейтинг обновляются в том же браузере</li>
+      </ul>
+    </section>
+
+    <section class="slide">
+      <div class="bar"></div>
+      <h2>Решение</h2>
+      <ul>
+        <li>Веб-кабинет класса (UI в духе Uncommon)</li>
+        <li>Роли: учитель / ученик</li>
+        <li>Баллы + ачивки + рейтинг + графики</li>
+        <li>Пиксельный переход и scramble-текст</li>
+        <li>Данные в localStorage + JSON-бэкап</li>
+      </ul>
+    </section>
+
+    <section class="slide">
+      <div class="bar"></div>
+      <h2>Что внутри MVP</h2>
+      <div class="cols">
+        <div>
+          <h3>Учитель</h3>
+          <ul>
+            <li>класс (добавить / удалить)</li>
+            <li>выдача баллов и ачивок</li>
+            <li>сброс / выход</li>
+            <li>графики</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Ученик</h3>
+          <ul>
+            <li>вход по ФИО + пароль</li>
+            <li>мои баллы</li>
+            <li>место в классе</li>
+            <li>мои ачивки</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <div class="bar"></div>
+      <h2>Стек</h2>
+      <ul>
+        <li>Next.js 16 (static export) · React · Tailwind v4</li>
+        <li>Сессия: sessionStorage · данные: localStorage</li>
+        <li>Шрифты: Aktiv Grotesk / Extended</li>
+        <li>Цвета: #080A0D · #E5DAC3</li>
+        <li>Хостинг: out/ → Reg.ru / FTP</li>
+      </ul>
+    </section>
+
+    <section class="slide">
+      <div class="bar"></div>
+      <h2>Проверка и ОС</h2>
+      <ul>
+        <li>Собрали из подручного: Cursor + Next + статика</li>
+        <li>Итерации по фидбеку: UX выдачи, пароли, пиксели, UI</li>
+        <li>Контур ОС: демо → замечания → правки → снова демо</li>
+        <li>Дальше: форма багов / канал класса</li>
+      </ul>
+    </section>
+
+    <section class="slide">
+      <div class="bar"></div>
+      <h2>Ограничения</h2>
+      <ul>
+        <li>Нет общего сервера: данные в браузере учителя</li>
+        <li>Актуальные баллы — на том же ПК или через бэкап</li>
+        <li>Для урока: ноутбук учителя + проектор — ок</li>
+      </ul>
+    </section>
+
+    <section class="slide">
+      <div class="bar"></div>
+      <h2>Дальше</h2>
+      <ul>
+        <li>Выложить out/ на хостинг</li>
+        <li>Собрать ОС после реального урока</li>
+        <li>При росте класса — общий бэкенд</li>
+      </ul>
+      <p class="lead" style="margin-top:1rem">Демо → http://127.0.0.1:3000</p>
+    </section>
+
+  </div>
+
+  <div class="footer">
+    <span>Management Laboratory · diary</span>
+    <span id="page">1 / 10</span>
+  </div>
+  <p class="hint">← → или клик · F — полный экран</p>
+  <div class="nav">
+    <button type="button" id="prev" aria-label="Назад">←</button>
+    <button type="button" id="next" aria-label="Вперёд">→</button>
+  </div>
+
+  <script>
+    const slides = [...document.querySelectorAll(".slide")];
+    let i = 0;
+    const page = document.getElementById("page");
+
+    function show(n) {
+      i = (n + slides.length) % slides.length;
+      slides.forEach((s, idx) => s.classList.toggle("active", idx === i));
+      page.textContent = (i + 1) + " / " + slides.length;
+    }
+
+    document.getElementById("prev").onclick = () => show(i - 1);
+    document.getElementById("next").onclick = () => show(i + 1);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") {
+        e.preventDefault();
+        show(i + 1);
+      } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
+        e.preventDefault();
+        show(i - 1);
+      } else if (e.key === "f" || e.key === "F") {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        else document.exitFullscreen();
+      } else if (e.key === "Home") show(0);
+      else if (e.key === "End") show(slides.length - 1);
+    });
+    document.getElementById("deck").addEventListener("click", (e) => {
+      if (e.target.closest("button")) return;
+      const x = e.clientX / window.innerWidth;
+      if (x > 0.55) show(i + 1);
+      else if (x < 0.45) show(i - 1);
+    });
+  </script>
+</body>
+</html>

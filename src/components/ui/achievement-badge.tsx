@@ -1,10 +1,11 @@
 import type { AchievementIcon } from "@/data/seed";
 import { cn } from "@/lib/cn";
+import { publicUrl } from "@/lib/public-url";
 
 const ICONS: Record<AchievementIcon, string> = {
-  plus: "/badges/ach-plus.png",
-  bolt: "/badges/ach-bolt.png",
-  cross: "/badges/ach-cross.png",
+  plus: publicUrl("/badges/ach-plus.png"),
+  bolt: publicUrl("/badges/ach-bolt.png"),
+  cross: publicUrl("/badges/ach-cross.png"),
 };
 
 type AchievementBadgeProps = {

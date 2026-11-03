@@ -20,7 +20,7 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <Card className={cn("flex flex-col items-center text-center", className)}>
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-border bg-accent-soft text-foreground">
+      <div className="mb-4 flex h-12 w-12 items-center justify-center border border-[rgb(229_218_195/0.35)] text-foreground">
         {icon ?? <Inbox className="h-5 w-5" aria-hidden />}
       </div>
       <h2 className="font-display text-lg font-semibold tracking-tight">{title}</h2>

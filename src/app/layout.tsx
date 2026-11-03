@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Manrope, Unbounded } from "next/font/google";
+import { Inter } from "next/font/google";
 import { MainShell } from "@/components/layout/main-shell";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -7,14 +7,16 @@ import { PixelTransition } from "@/components/motion/pixel-transition";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import "./globals.css";
 
-const manrope = Manrope({
-  variable: "--font-manrope",
+/**
+ * Шрифты uncommon.nl (Adobe Fonts / Typekit):
+ * - aktiv-grotesk (n4)
+ * - aktiv-grotesk-extended (n5)
+ * Inter — только fallback для кириллицы, если в kit нет глифов.
+ */
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin", "cyrillic"],
-});
-
-const unbounded = Unbounded({
-  variable: "--font-unbounded",
-  subsets: ["latin", "cyrillic"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -24,6 +26,24 @@ export const metadata: Metadata = {
   },
   description: "Дашборд баллов и ачивок класса. Командный проект №2.",
 };
+
+const fontBase = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+const fontFaceCss = `
+@font-face {
+  font-family: "aktiv-grotesk";
+  src: url("${fontBase}/fonts/aktiv-grotesk-400.woff2?v=3") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "aktiv-grotesk-extended";
+  src: url("${fontBase}/fonts/aktiv-grotesk-extended-500.woff2?v=3") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+`;
 
 const themeInitScript = `
 (function () {
@@ -46,10 +66,11 @@ export default function RootLayout({
   return (
     <html
       lang="ru"
-      className={`${manrope.variable} ${unbounded.variable} h-full antialiased`}
+      className={`${inter.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
+        <style dangerouslySetInnerHTML={{ __html: fontFaceCss }} />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="flex min-h-full flex-col bg-background font-sans text-foreground antialiased">

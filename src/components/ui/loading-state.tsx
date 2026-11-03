@@ -12,7 +12,7 @@ export function LoadingState({
   return (
     <div
       className={cn(
-        "flex min-h-40 flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border/30 bg-card/70 p-8 text-center",
+        "flex min-h-40 flex-col items-center justify-center gap-3 border-t border-[rgb(229_218_195/0.22)] bg-transparent pt-8 text-center",
         className,
       )}
       role="status"

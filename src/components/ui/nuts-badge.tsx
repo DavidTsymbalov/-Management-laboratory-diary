@@ -1,4 +1,5 @@
 import { cn } from "@/lib/cn";
+import { publicUrl } from "@/lib/public-url";
 
 type NutsBadgeProps = {
   value: number;
@@ -27,7 +28,7 @@ export function NutsBadge({ value, size = "lg", className }: NutsBadgeProps) {
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/badges/nuts-circle.png"
+        src={publicUrl("/badges/nuts-circle.png")}
         alt=""
         className="pointer-events-none absolute inset-0 h-full w-full scale-[1.18] select-none object-cover"
         draggable={false}

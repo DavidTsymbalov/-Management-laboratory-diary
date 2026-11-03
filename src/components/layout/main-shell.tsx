@@ -11,8 +11,9 @@ export function MainShell({ children }: { children: ReactNode }) {
   return (
     <main
       className={cn(
-        "relative z-10 flex-1",
-        !onHome && "pt-20 pb-10 sm:pt-24 sm:pb-14",
+        // без z-index на главной: иначе fixed-слоган «запирается» под пикселями
+        "relative flex-1",
+        !onHome && "z-10 pt-20 pb-10 sm:pt-24 sm:pb-14",
       )}
     >
       {children}

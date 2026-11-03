@@ -32,13 +32,13 @@ const items = [
 
 export function StatsGrid({ stats }: { stats: ClassStats }) {
   return (
-    <section className="grid gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-2 xl:grid-cols-4">
+    <section className="grid gap-8 border-t border-[rgb(229_218_195/0.22)] pt-6 sm:grid-cols-2 xl:grid-cols-4">
       {items.map((item, index) => {
         const Icon = item.icon;
         return (
           <div
             key={item.key}
-            className={`anim-fade-up-delay-${Math.min(index, 3)} space-y-3 bg-card p-5`}
+            className={`anim-fade-up-delay-${Math.min(index, 3)} space-y-3`}
           >
             <Icon className="h-4 w-4 text-muted-foreground" aria-hidden />
             <p className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">

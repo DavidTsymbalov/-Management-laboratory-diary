@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# temp extract junk (breaks Turbopack watch)
+/tmp-pdf-extract/
+
 # production
 /build
 

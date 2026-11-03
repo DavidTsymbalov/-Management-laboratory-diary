@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { PUBLIC_BASE } from "@/lib/public-url";
 
 const COLS = 9;
 const ROWS = 6;
@@ -12,8 +13,12 @@ const HOLD_MS = 420;
 const HOLD_AFTER_NAV_MS = 320;
 const REVEAL_MS = 1150;
 const BOOT_HOLD_MS = 650;
+/** Сколько едет текст слева/справа (должно ≥ CSS animation) */
+const INTRO_SLIDE_MS = 2300;
+/** Пауза уже сложившимся текстом — только потом пиксели */
+const INTRO_HOLD_MS = 850;
 
-type Phase = "idle" | "cover" | "hold" | "reveal";
+type Phase = "boot" | "idle" | "intro" | "cover" | "hold" | "reveal";
 
 function mulberry32(seed: number) {
   let s = seed >>> 0;
@@ -52,21 +57,37 @@ function allOn(value: boolean) {
 function normalizeHref(href: string) {
   try {
     const url = new URL(href, window.location.origin);
-    return `${url.pathname}${url.search}${url.hash}`;
+    // DOM links already contain basePath; Next's router adds it itself.
+    const path = PUBLIC_BASE &&
+      (url.pathname === PUBLIC_BASE || url.pathname.startsWith(`${PUBLIC_BASE}/`))
+      ? url.pathname.slice(PUBLIC_BASE.length) || "/"
+      : url.pathname;
+    return `${path}${url.search}${url.hash}`;
   } catch {
     return href;
   }
 }
 
+function isHomePath(path: string) {
+  return path === "/" || path === "" ||
+    (Boolean(PUBLIC_BASE) && (path === PUBLIC_BASE || path === `${PUBLIC_BASE}/`));
+}
+
 export function PixelTransition() {
   const router = useRouter();
-  const [phase, setPhase] = useState<Phase>("hold");
+  const pathname = usePathname();
+  const [phase, setPhase] = useState<Phase>("boot");
   const [filled, setFilled] = useState<boolean[]>(() => allOn(true));
+  /** Текст интро рисуем в этом же слое (над пикселями), чтобы его было видно */
+  const [showIntroCopy, setShowIntroCopy] = useState(false);
+  /** После пикселей оставляем тот же слоган — без сброса на дубль в hero */
+  const [homeSloganLive, setHomeSloganLive] = useState(false);
   const pendingHref = useRef<string | null>(null);
   const timers = useRef<number[]>([]);
   const busyRef = useRef(false);
   const revealRef = useRef<() => void>(() => undefined);
   const bootedRef = useRef(false);
+  const homeIntroRef = useRef(false);
 
   const orderCover = useMemo(() => shuffledOrder(0xc0ffee), []);
   const orderReveal = useMemo(() => shuffledOrder(0xbadc0de), []);
@@ -104,11 +125,32 @@ export function PixelTransition() {
     [schedule],
   );
 
+  const markIntroDone = useCallback(() => {
+    document.documentElement.removeAttribute("data-ml-intro");
+  }, []);
+
+  const clearHomeSlogan = useCallback(() => {
+    homeIntroRef.current = false;
+    setHomeSloganLive(false);
+    setShowIntroCopy(false);
+    document.documentElement.removeAttribute("data-ml-slogan-live");
+  }, []);
+
   const goIdle = useCallback(() => {
     busyRef.current = false;
-    setPhase("idle");
+    markIntroDone();
     setFilled(allOn(false));
-  }, []);
+    setPhase("idle");
+    // На главной оставляем тот же слой слогана — иначе «сброс» раскладки
+    if (homeIntroRef.current) {
+      setShowIntroCopy(true);
+      setHomeSloganLive(true);
+      document.documentElement.setAttribute("data-ml-slogan-live", "1");
+      return;
+    }
+    setShowIntroCopy(false);
+    setHomeSloganLive(false);
+  }, [markIntroDone]);
 
   const runReveal = useCallback(() => {
     clearTimers();
@@ -126,15 +168,14 @@ export function PixelTransition() {
   const coverThenGo = useCallback(
     (href: string) => {
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        router.push(href);
+        router.push(normalizeHref(href));
         return;
       }
 
       const target = normalizeHref(href);
-      const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      const current = normalizeHref(window.location.href);
       if (target === current) return;
 
-      // не блокируем навсегда, если предыдущий цикл завис
       if (busyRef.current) {
         clearTimers();
         busyRef.current = false;
@@ -143,6 +184,7 @@ export function PixelTransition() {
       clearTimers();
       busyRef.current = true;
       pendingHref.current = target;
+      clearHomeSlogan();
       setPhase("cover");
       setFilled(allOn(false));
       schedule(() => paintWave(true, orderCover, COVER_MS), 40);
@@ -162,39 +204,74 @@ export function PixelTransition() {
         }, HOLD_MS);
       }, COVER_MS + 80);
     },
-    [clearTimers, goIdle, orderCover, paintWave, router, schedule],
+    [clearHomeSlogan, clearTimers, goIdle, orderCover, paintWave, router, schedule],
   );
 
-  // Boot: чёрный экран → пауза → пиксели уходят
+  // Boot: на главной — пиксели ждут, пока слоган сложится; иначе сразу пиксели
   useEffect(() => {
     if (bootedRef.current) return;
     bootedRef.current = true;
 
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      goIdle();
-      return;
+      const frame = window.requestAnimationFrame(goIdle);
+      return () => {
+        window.cancelAnimationFrame(frame);
+        bootedRef.current = false;
+      };
     }
 
     busyRef.current = true;
-    setPhase("hold");
-    setFilled(allOn(true));
+    const home = isHomePath(window.location.pathname);
+
+    if (home) {
+      homeIntroRef.current = true;
+      document.documentElement.setAttribute("data-ml-intro", "1");
+      const frame = window.requestAnimationFrame(() => {
+        setShowIntroCopy(true);
+        setPhase("intro");
+        setFilled(allOn(true));
+      });
+
+      const toPixels = window.setTimeout(() => {
+        setPhase("hold");
+        setFilled(allOn(true));
+        schedule(() => revealRef.current(), 220);
+      }, INTRO_SLIDE_MS + INTRO_HOLD_MS);
+
+      const safety = window.setTimeout(() => {
+        busyRef.current = false;
+        markIntroDone();
+      }, INTRO_SLIDE_MS + INTRO_HOLD_MS + REVEAL_MS + 2500);
+
+      return () => {
+        window.cancelAnimationFrame(frame);
+        window.clearTimeout(toPixels);
+        window.clearTimeout(safety);
+        bootedRef.current = false;
+      };
+    }
+
+    markIntroDone();
+    const frame = window.requestAnimationFrame(() => {
+      setPhase("hold");
+      setFilled(allOn(true));
+    });
 
     const open = window.setTimeout(() => {
       revealRef.current();
     }, BOOT_HOLD_MS);
 
-    // safety: никогда не держим busy вечно
     const safety = window.setTimeout(() => {
       busyRef.current = false;
     }, BOOT_HOLD_MS + REVEAL_MS + 2000);
 
     return () => {
+      window.cancelAnimationFrame(frame);
       window.clearTimeout(open);
       window.clearTimeout(safety);
-      // Strict Mode: разрешаем boot на втором mount
       bootedRef.current = false;
     };
-  }, [goIdle]);
+  }, [goIdle, markIntroDone, schedule]);
 
   useEffect(() => {
     function onClick(event: MouseEvent) {
@@ -233,21 +310,62 @@ export function PixelTransition() {
     };
   }, [coverThenGo]);
 
-  if (phase === "idle") return null;
+  useEffect(() => {
+    if (!isHomePath(pathname)) {
+      markIntroDone();
+      const frame = window.requestAnimationFrame(clearHomeSlogan);
+      return () => window.cancelAnimationFrame(frame);
+    }
+  }, [pathname, clearHomeSlogan, markIntroDone]);
+
+  const sloganNode = showIntroCopy ? (
+    <div
+      className="pixel-intro-copy"
+      data-settled={homeSloganLive || phase === "hold" || phase === "reveal" ? "1" : "0"}
+    >
+      <span className="pixel-intro-line pixel-intro-from-left">Management</span>
+      <span className="pixel-intro-line pixel-intro-line-2 pixel-intro-from-right">
+        laboratory
+      </span>
+      <span className="pixel-intro-line pixel-intro-line-3 pixel-intro-from-left pixel-intro-delay">
+        diary
+      </span>
+    </div>
+  ) : null;
+
+  if (phase === "idle") {
+    if (!homeSloganLive) return null;
+    return (
+      <div className="pixel-transition pixel-slogan-live" data-phase="idle" aria-hidden>
+        {sloganNode}
+      </div>
+    );
+  }
+
+  const solidOnly = phase === "boot" || phase === "intro";
+  const showMosaic = phase === "cover" || phase === "hold" || phase === "reveal";
 
   return (
     <div
       className="pixel-transition"
       data-phase={phase}
-      style={{
-        gridTemplateColumns: colTracks,
-        gridTemplateRows: rowTracks,
-      }}
+      style={
+        showMosaic
+          ? {
+              gridTemplateColumns: colTracks,
+              gridTemplateRows: rowTracks,
+            }
+          : undefined
+      }
       aria-hidden
     >
-      {filled.map((on, index) => (
-        <div key={index} className="pixel-cell" data-on={on ? "1" : "0"} />
-      ))}
+      {solidOnly ? <div className="pixel-intro-solid" /> : null}
+      {showMosaic
+        ? filled.map((on, index) => (
+            <div key={index} className="pixel-cell" data-on={on ? "1" : "0"} />
+          ))
+        : null}
+      {sloganNode}
     </div>
   );
 }

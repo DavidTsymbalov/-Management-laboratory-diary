@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { ScrambleText } from "@/components/motion/scramble-text";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { cn } from "@/lib/cn";
 import { isStudentLoggedIn, isTeacherLoggedIn } from "@/lib/session";
 
@@ -53,14 +52,10 @@ export function SiteHeader() {
 
         <Link
           href="/"
-          className="btn-text justify-self-center px-1 py-1 font-display text-[0.78rem] font-bold uppercase tracking-[0.32em] sm:text-sm"
+          className="btn-text site-logo px-1 text-[0.78rem] uppercase sm:text-sm"
           aria-label="Management Laboratory"
         >
-          <ScrambleText
-            text="Management Laboratory"
-            playOnMount
-            mountDelayMs={900}
-          />
+          Management Laboratory
         </Link>
 
         <nav
@@ -76,7 +71,7 @@ export function SiteHeader() {
                 key={link.key}
                 href={href}
                 className={cn(
-                  "nav-underline hidden px-2 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.18em] transition-colors sm:inline-flex",
+                  "nav-underline hidden px-2 py-2 text-[0.65rem] font-normal uppercase tracking-[0.16em] transition-colors sm:inline-flex",
                   onHome
                     ? active
                       ? "text-[var(--uc-cream)]"
@@ -96,7 +91,6 @@ export function SiteHeader() {
               </Link>
             );
           })}
-          <ThemeToggle />
         </nav>
       </div>
     </header>

@@ -89,6 +89,8 @@ export function ScrambleText({
     timer.current = window.setInterval(() => {
       tick += 1;
       const next = original.map((ch, i) => {
+        // Первая буква всегда стабильная
+        if (i === 0) return ch;
         if (/[\s·|./:_-]/.test(ch)) return ch;
         const lockAt = Math.floor((i / Math.max(1, original.length)) * MAX_CYCLES);
         if (tick > lockAt + MAX_CYCLES) return ch;
@@ -97,6 +99,7 @@ export function ScrambleText({
       setLive(next);
 
       const done = original.every((ch, i) => {
+        if (i === 0) return true;
         if (/[\s·|./:_-]/.test(ch)) return true;
         const lockAt = Math.floor((i / Math.max(1, original.length)) * MAX_CYCLES);
         return tick > lockAt + MAX_CYCLES;

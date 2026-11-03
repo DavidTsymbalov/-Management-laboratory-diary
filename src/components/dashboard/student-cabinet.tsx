@@ -107,7 +107,7 @@ export function StudentCabinet() {
             №{rank ?? "—"}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            из {data.students.length} (без чужих имён)
+            из {data.students.length}
           </p>
         </Card>
       </div>

@@ -213,7 +213,7 @@ export function TeacherPanel() {
               value={namesText}
               onChange={(e) => setNamesText(e.target.value)}
               placeholder={"Иванов Иван\nПетрова Анна | …"}
-              className="w-full rounded-xl border border-border bg-background/60 px-3 py-2.5 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-accent/35"
+              className="w-full rounded-none border-0 border-b border-[rgb(229_218_195/0.35)] bg-transparent px-0 py-2.5 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-accent/35"
             />
             <Button type="button" onClick={addMany}>
               Добавить в класс
