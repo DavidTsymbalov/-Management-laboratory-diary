@@ -1,0 +1,5 @@
+project_id = "pnpanexhudlalavcevck"
+
+[functions.manage-students]
+# Verify current JWTs with auth.getUser inside the handler (also supports new signing keys).
+verify_jwt = false

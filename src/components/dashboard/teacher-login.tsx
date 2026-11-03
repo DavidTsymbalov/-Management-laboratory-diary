@@ -2,13 +2,13 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { TEACHER } from "@/data/seed";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
-import { isTeacherLoggedIn, setTeacherLoggedIn } from "@/lib/session";
+import { getCloudRole, signInCloud } from "@/lib/cloud-store";
+import { cloudError } from "@/lib/supabase";
 
 export function TeacherLogin() {
   const router = useRouter();
@@ -16,29 +16,33 @@ export function TeacherLogin() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      if (isTeacherLoggedIn()) {
-        router.replace("/teacher/dashboard/");
-        return;
-      }
-      setReady(true);
-    }, 0);
-    return () => window.clearTimeout(timer);
+    let active = true;
+    void getCloudRole().then((role) => {
+      if (!active) return;
+      if (role?.role === "teacher") router.replace("/teacher/dashboard/");
+      else setReady(true);
+    }).catch((error) => {
+      if (active) { setError(cloudError(error)); setReady(true); }
+    });
+    return () => { active = false; };
   }, [router]);
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (
-      username.trim() === TEACHER.username &&
-      password === TEACHER.password
-    ) {
-      setTeacherLoggedIn(true);
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await signInCloud(username, password, "teacher");
       router.push("/teacher/dashboard/");
-      return;
+    } catch (error) {
+      setError(cloudError(error));
+    } finally {
+      setBusy(false);
     }
-    setError("Неверный логин или пароль.");
   }
 
   if (!ready) {
@@ -54,13 +58,18 @@ export function TeacherLogin() {
         <h1 className="mt-2 font-display text-3xl font-bold tracking-tight">
           Вход
         </h1>
+        <p className="mt-3 text-sm text-muted-foreground">Введите логин и пароль учителя.</p>
       </div>
       <Card>
         <form className="space-y-4" onSubmit={onSubmit}>
           <div className="space-y-1.5">
-            <Label htmlFor="username">Имя пользователя</Label>
+            <Label htmlFor="username">Логин</Label>
             <Input
               id="username"
+              type="text"
+              placeholder="teacher"
+              autoCapitalize="none"
+              spellCheck={false}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="username"
@@ -82,8 +91,8 @@ export function TeacherLogin() {
               {error}
             </p>
           ) : null}
-          <Button type="submit" className="w-full">
-            Войти
+          <Button type="submit" className="w-full" disabled={busy}>
+            {busy ? "Входим…" : "Войти"}
           </Button>
         </form>
       </Card>

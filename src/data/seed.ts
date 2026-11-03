@@ -16,11 +16,6 @@ export type Student = {
   achievements: Achievement[];
 };
 
-export const TEACHER = {
-  username: "Андрей Лякин",
-  password: "LBM",
-} as const;
-
 export const DEFAULT_STUDENT_PASSWORD = "1111";
 
 /** Старт пустой — учеников добавляет учитель */

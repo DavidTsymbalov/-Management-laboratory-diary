@@ -1,5 +1,7 @@
 "use client";
 
+// Navigation hints only. Actual access is checked by Supabase Auth, RLS and the Edge Function.
+
 const TEACHER_KEY = "ml-teacher-session";
 const STUDENT_KEY = "ml-student-session";
 

@@ -7,11 +7,8 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
-import { loadData, verifyStudentLogin } from "@/lib/store";
-import {
-  getStudentSessionId,
-  setStudentSessionId,
-} from "@/lib/session";
+import { getCloudRole, signInCloud } from "@/lib/cloud-store";
+import { cloudError } from "@/lib/supabase";
 
 export function StudentLogin() {
   const router = useRouter();
@@ -19,30 +16,33 @@ export function StudentLogin() {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const loaded = loadData();
-      const existing = getStudentSessionId();
-      if (existing && loaded.students.some((s) => s.id === existing)) {
-        router.replace("/student/dashboard/");
-        return;
-      }
-      setReady(true);
-    }, 0);
-    return () => window.clearTimeout(timer);
+    let active = true;
+    void getCloudRole().then((role) => {
+      if (!active) return;
+      if (role?.role === "student") router.replace("/student/dashboard/");
+      else setReady(true);
+    }).catch((error) => {
+      if (active) { setError(cloudError(error)); setReady(true); }
+    });
+    return () => { active = false; };
   }, [router]);
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    const data = loadData();
-    const student = verifyStudentLogin(data.students, name, password);
-    if (!student) {
-      setError("Неверное ФИО или пароль.");
-      return;
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await signInCloud(name, password, "student");
+      router.push("/student/dashboard/");
+    } catch (error) {
+      setError(cloudError(error));
+    } finally {
+      setBusy(false);
     }
-    setStudentSessionId(student.id);
-    router.push("/student/dashboard/");
   }
 
   if (!ready) {
@@ -91,8 +91,8 @@ export function StudentLogin() {
               {error}
             </p>
           ) : null}
-          <Button type="submit" className="w-full">
-            Войти в кабинет
+          <Button type="submit" className="w-full" disabled={busy}>
+            {busy ? "Входим…" : "Войти в кабинет"}
           </Button>
         </form>
       </Card>

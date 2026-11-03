@@ -8,37 +8,35 @@ import { NutsBadge } from "@/components/ui/nuts-badge";
 import { AchievementBadge } from "@/components/ui/achievement-badge";
 import {
   getStudentRank,
-  loadData,
   type AppData,
 } from "@/lib/store";
-import {
-  getStudentSessionId,
-  setStudentSessionId,
-} from "@/lib/session";
+import { getCloudRank, getCloudRole, loadCloudData, signOutCloud, watchCloudData } from "@/lib/cloud-store";
+import { cloudError } from "@/lib/supabase";
 import { pixelNavigate } from "@/lib/pixel-nav";
 
 export function StudentCabinet() {
   const router = useRouter();
   const [data, setData] = useState<AppData | null>(null);
   const [studentId, setStudentId] = useState<string | null>(null);
+  const [standing, setStanding] = useState<{ rank: number; total: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const id = getStudentSessionId();
-      if (!id) {
-        router.replace("/student/");
-        return;
-      }
-      const loaded = loadData();
-      if (!loaded.students.some((s) => s.id === id)) {
-        setStudentSessionId(null);
-        router.replace("/student/");
-        return;
-      }
-      setData(loaded);
-      setStudentId(id);
-    }, 0);
-    return () => window.clearTimeout(timer);
+    let active = true;
+    async function refresh() {
+      try {
+        const role = await getCloudRole();
+        if (!active) return;
+        if (role?.role !== "student") { router.replace("/student/"); return; }
+        const [loaded, rank] = await Promise.all([loadCloudData(), getCloudRank()]);
+        if (active) {
+          setData(loaded); setStudentId(role.id); setStanding(rank); setError(null);
+        }
+      } catch (error) { if (active) setError(cloudError(error)); }
+    }
+    void refresh();
+    const stop = watchCloudData(refresh);
+    return () => { active = false; stop(); };
   }, [router]);
 
   const me = useMemo(
@@ -48,15 +46,17 @@ export function StudentCabinet() {
 
   const rank = useMemo(() => {
     if (!data || !studentId) return null;
-    return getStudentRank(data.students, studentId);
-  }, [data, studentId]);
+    return standing?.rank ?? getStudentRank(data.students, studentId);
+  }, [data, studentId, standing]);
 
   if (!data || !me) {
+    if (error) return <div role="alert" className="space-y-3"><p>{error}</p><Button onClick={() => window.location.reload()}>Повторить</Button><Button href="/student/">Ко входу</Button></div>;
     return <p className="text-muted-foreground">Загрузка…</p>;
   }
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
+      {error ? <p role="alert" className="text-sm text-danger">{error} Показаны последние загруженные данные.</p> : null}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
@@ -82,9 +82,9 @@ export function StudentCabinet() {
             type="button"
             variant="secondary"
             size="sm"
-            onClick={() => {
-              setStudentSessionId(null);
-              pixelNavigate("/student/");
+            onClick={async () => {
+              try { await signOutCloud(); pixelNavigate("/student/"); }
+              catch (error) { setError(cloudError(error)); }
             }}
           >
             Выйти
@@ -107,7 +107,7 @@ export function StudentCabinet() {
             №{rank ?? "—"}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            из {data.students.length}
+            из {standing?.total ?? data.students.length}
           </p>
         </Card>
       </div>

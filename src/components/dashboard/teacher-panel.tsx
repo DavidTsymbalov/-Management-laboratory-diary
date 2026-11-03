@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,21 +13,11 @@ import { TeacherCharts } from "@/components/dashboard/teacher-charts";
 import { ScrambleText } from "@/components/motion/scramble-text";
 import { NutsBadge } from "@/components/ui/nuts-badge";
 import { AchievementBadge } from "@/components/ui/achievement-badge";
-import {
-  addNuts,
-  addStudent,
-  grantAchievement,
-  loadData,
-  parseStudentLine,
-  rankedStudents,
-  removeStudent,
-  resetData,
-  saveData,
-  setStudentPassword,
-  type AppData,
-} from "@/lib/store";
+import { loadData, rankedStudents, type AppData } from "@/lib/store";
+import { addCloudStudents, awardCloudAchievement, awardCloudNuts, getCloudRole,
+  loadCloudData, manageCloudStudents, signOutCloud, watchCloudData, type StudentInput } from "@/lib/cloud-store";
+import { cloudError } from "@/lib/supabase";
 import { computeStats } from "@/lib/stats";
-import { isTeacherLoggedIn, setTeacherLoggedIn } from "@/lib/session";
 import { pixelNavigate } from "@/lib/pixel-nav";
 import { cn } from "@/lib/cn";
 
@@ -42,16 +32,27 @@ export function TeacherPanel() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [achTitle, setAchTitle] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const locked = useRef(false);
+  const [passwords, setPasswords] = useState<Record<string, string>>({});
+  const [credentials, setCredentials] = useState<StudentInput[]>([]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      if (!isTeacherLoggedIn()) {
-        router.replace("/teacher/");
-        return;
-      }
-      setData(loadData());
-    }, 0);
-    return () => window.clearTimeout(timer);
+    let active = true;
+    async function refresh() {
+      if (locked.current) return;
+      try {
+        const role = await getCloudRole();
+        if (!active) return;
+        if (role?.role !== "teacher") { router.replace("/teacher/"); return; }
+        const loaded = await loadCloudData();
+        if (active && !locked.current) { setData(loaded); setError(null); }
+      } catch (error) { if (active) setError(cloudError(error)); }
+    }
+    void refresh();
+    const stop = watchCloudData(refresh);
+    return () => { active = false; stop(); };
   }, [router]);
 
   const ranked = useMemo(
@@ -60,9 +61,24 @@ export function TeacherPanel() {
   );
   const stats = useMemo(() => computeStats(data?.students ?? []), [data]);
 
-  function commit(students: AppData["students"]) {
-    if (!data) return;
-    setData(saveData({ ...data, students }));
+  async function runAction(action: () => Promise<string>) {
+    if (locked.current) return;
+    locked.current = true;
+    setBusy(true); setError(null); setMessage(null);
+    let saved = false;
+    try {
+      const message = await action();
+      saved = true;
+      setMessage(message);
+      setData(await loadCloudData());
+    } catch (error) {
+      setError(`${saved ? "Изменения сохранены, но не удалось обновить список. " : ""}${cloudError(error)}`);
+      // A batch may have partly completed; reconcile with the database before retrying.
+      try { setData(await loadCloudData()); } catch { /* Keep the last view and the error above. */ }
+    } finally {
+      locked.current = false;
+      setBusy(false);
+    }
   }
 
   function toggleStudent(id: string) {
@@ -71,21 +87,55 @@ export function TeacherPanel() {
     );
   }
 
+  function randomPassword() {
+    return Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  async function createAccounts(students: StudentInput[]) {
+    if (students.length < 1 || students.length > 30) throw new Error("Добавляйте от 1 до 30 учеников за раз.");
+    const result = await addCloudStudents(students);
+    setCredentials(students.filter((s) => result.created.includes(s.name)));
+    if (!result.errors.length) setNamesText("");
+    return `Добавлено: ${result.created.length}.${result.errors.length ? ` ${result.errors.join(" ")}` : ""}`;
+  }
+
   function addMany() {
-    if (!data) return;
-    const lines = namesText.split("\n");
-    let next = data.students;
-    let added = 0;
-    for (const line of lines) {
-      const parsed = parseStudentLine(line);
-      if (!parsed) continue;
-      const before = next.length;
-      next = addStudent(next, parsed.name, parsed.password);
-      if (next.length > before) added += 1;
-    }
-    commit(next);
-    setNamesText("");
-    setMessage(added ? `Добавлено: ${added}` : "Никого не добавили — проверьте ФИО.");
+    void runAction(async () => {
+      const students = namesText.split("\n").filter((line) => line.trim()).map((line) => {
+        const [name, password] = line.split("|").map((part) => part.trim());
+        return { name: name.replace(/\s+/gu, " "), password: password || randomPassword() };
+      });
+      if (students.some((s) => !s.name || s.password.length < 8)) throw new Error("Укажите ФИО и пароль минимум из 8 символов, либо оставьте пароль пустым.");
+      return createAccounts(students);
+    });
+  }
+
+  function importLocal() {
+    const local = loadData();
+    if (!local.students.length) { setError("На этом устройстве нет старых учеников для переноса."); return; }
+    if (!confirm(`Перенести ${local.students.length} учеников с этого устройства в общую базу? Для коротких паролей будут созданы новые.`)) return;
+    void runAction(() => createAccounts(local.students.map((s) => ({
+      ...s, name: s.name.trim().replace(/\s+/gu, " "),
+      password: s.password.length >= 8 ? s.password : randomPassword(),
+    }))));
+  }
+
+  function deleteStudent(id: string) {
+    void runAction(async () => {
+      await manageCloudStudents({ action: "delete", id });
+      setSelectedIds((ids) => ids.filter((item) => item !== id));
+      return "Ученик удалён.";
+    });
+  }
+
+  function changePassword(id: string) {
+    void runAction(async () => {
+      const password = passwords[id] ?? "";
+      if (password.length < 8) throw new Error("Пароль должен содержать минимум 8 символов.");
+      await manageCloudStudents({ action: "password", id, password });
+      setPasswords((prev) => ({ ...prev, [id]: "" }));
+      return "Новый пароль сохранён.";
+    });
   }
 
   function awardNuts() {
@@ -98,10 +148,10 @@ export function TeacherPanel() {
       setMessage("Укажите число баллов.");
       return;
     }
-    let next = data.students;
-    for (const id of selectedIds) next = addNuts(next, id, amount);
-    commit(next);
-    setMessage(`Баллы выданы: ${amount > 0 ? "+" : ""}${amount} × ${selectedIds.length}`);
+    void runAction(async () => {
+      await awardCloudNuts(selectedIds, amount);
+      return `Баллы выданы: ${amount > 0 ? "+" : ""}${amount} × ${selectedIds.length}`;
+    });
   }
 
   function awardAch() {
@@ -109,14 +159,15 @@ export function TeacherPanel() {
       setMessage("Выберите учеников и напишите ачивку.");
       return;
     }
-    let next = data.students;
-    for (const id of selectedIds) next = grantAchievement(next, id, achTitle);
-    commit(next);
-    setAchTitle("");
-    setMessage(`Ачивка выдана × ${selectedIds.length}`);
+    void runAction(async () => {
+      await awardCloudAchievement(selectedIds, achTitle);
+      setAchTitle("");
+      return `Ачивка выдана × ${selectedIds.length}`;
+    });
   }
 
   if (!data) {
+    if (error) return <div role="alert" className="space-y-3"><p>{error}</p><Button onClick={() => window.location.reload()}>Повторить</Button><Button href="/teacher/">Ко входу</Button></div>;
     return <p className="text-muted-foreground">Загрузка…</p>;
   }
 
@@ -127,7 +178,9 @@ export function TeacherPanel() {
   ];
 
   return (
-    <div className="space-y-8">
+    <fieldset disabled={busy} className="min-w-0 space-y-8 border-0 p-0">
+      {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
+      {busy ? <p role="status" className="text-sm text-muted-foreground">Сохраняем изменения…</p> : null}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
@@ -146,10 +199,12 @@ export function TeacherPanel() {
             variant="ghost"
             size="sm"
             onClick={() => {
-              if (confirm("Очистить весь класс?")) {
-                setData(resetData());
+              if (!confirm("Удалить весь класс и аккаунты учеников из общей базы?")) return;
+              void runAction(async () => {
+                for (const student of data.students) await manageCloudStudents({ action: "delete", id: student.id });
                 setSelectedIds([]);
-              }
+                return "Класс очищен.";
+              });
             }}
           >
             Сброс
@@ -166,9 +221,9 @@ export function TeacherPanel() {
             type="button"
             variant="secondary"
             size="sm"
-            onClick={() => {
-              setTeacherLoggedIn(false);
-              pixelNavigate("/teacher/");
+            onClick={async () => {
+              try { await signOutCloud(); pixelNavigate("/teacher/"); }
+              catch (error) { setError(cloudError(error)); }
             }}
           >
             Выйти
@@ -200,6 +255,16 @@ export function TeacherPanel() {
         </p>
       ) : null}
 
+      {credentials.length ? (
+        <Card className="space-y-3">
+          <p className="text-sm">Сохраните данные входа и передайте каждому ученику только его пароль. Этот список показывается до ухода со страницы.</p>
+          <textarea aria-label="Новые данные входа" readOnly rows={Math.min(credentials.length + 1, 10)}
+            className="w-full bg-transparent p-2 text-sm"
+            value={credentials.map((s) => `${s.name} | ${s.password}`).join("\n")} />
+          <Button variant="ghost" onClick={() => setCredentials([])}>Скрыть пароли</Button>
+        </Card>
+      ) : null}
+
       {tab === "class" ? (
         <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
           <Card className="space-y-3">
@@ -207,6 +272,7 @@ export function TeacherPanel() {
             <p className="text-sm text-muted-foreground">
               ФИО с новой строки. Свой пароль — через{" "}
               <code className="rounded bg-background px-1">ФИО | пароль</code>.
+              {" "}Минимум 8 символов. Если пароль не указан, создадим случайный.
             </p>
             <textarea
               rows={8}
@@ -218,6 +284,7 @@ export function TeacherPanel() {
             <Button type="button" onClick={addMany}>
               Добавить в класс
             </Button>
+            <Button type="button" variant="ghost" onClick={importLocal}>Перенести учеников с этого устройства</Button>
           </Card>
 
           <Card>
@@ -258,7 +325,7 @@ export function TeacherPanel() {
                         aria-label="Удалить"
                         onClick={() => {
                           if (confirm(`Удалить ${student.name}?`)) {
-                            commit(removeStudent(data.students, student.id));
+                            deleteStudent(student.id);
                             setSelectedIds((prev) =>
                               prev.filter((id) => id !== student.id),
                             );
@@ -273,23 +340,17 @@ export function TeacherPanel() {
                         htmlFor={`pass-${student.id}`}
                         className="mb-0 shrink-0 text-xs"
                       >
-                        Пароль
+                        Новый пароль
                       </Label>
                       <PasswordInput
                         id={`pass-${student.id}`}
-                        value={student.password}
-                        onChange={(e) =>
-                          commit(
-                            setStudentPassword(
-                              data.students,
-                              student.id,
-                              e.target.value,
-                            ),
-                          )
-                        }
+                        value={passwords[student.id] ?? ""}
+                        onChange={(e) => setPasswords((prev) => ({ ...prev, [student.id]: e.target.value }))}
+                        placeholder="От 8 символов"
                         className="h-9"
                         autoComplete="off"
                       />
+                      <Button size="sm" onClick={() => changePassword(student.id)}>Сохранить</Button>
                     </div>
                   </li>
                 ))}
@@ -420,6 +481,6 @@ export function TeacherPanel() {
           </Card>
         </div>
       ) : null}
-    </div>
+    </fieldset>
   );
 }
