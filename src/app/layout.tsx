@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { MainShell } from "@/components/layout/main-shell";
 import { SiteFooter } from "@/components/layout/site-footer";
@@ -25,6 +25,13 @@ export const metadata: Metadata = {
     template: "%s · Management Laboratory",
   },
   description: "Дашборд баллов и ачивок класса. Командный проект №2.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#080a0d",
 };
 
 const fontBase = process.env.NEXT_PUBLIC_BASE_PATH ?? "";

@@ -62,7 +62,7 @@ export function StudentCabinet() {
           <p className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             Личный кабинет
           </p>
-          <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+          <h1 className="mt-2 font-display text-3xl font-bold tracking-tight [overflow-wrap:anywhere] sm:text-4xl">
             {me.name}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -125,7 +125,7 @@ export function StudentCabinet() {
             {me.achievements.map((item) => (
               <li
                 key={item.id}
-                className="flex items-center justify-between gap-4 border-b border-border/60 pb-4 last:border-0 last:pb-0"
+                className="flex flex-col items-start justify-between gap-2 border-b border-border/60 pb-4 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:gap-4"
               >
                 <AchievementBadge icon={item.icon} title={item.title} />
                 <p className="shrink-0 text-xs text-muted-foreground">

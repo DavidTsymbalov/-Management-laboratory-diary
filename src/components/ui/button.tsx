@@ -13,9 +13,9 @@ const variants = {
 } as const;
 
 const sizes = {
-  sm: "h-9 px-1.5 text-xs tracking-[0.12em] uppercase",
-  md: "h-11 px-1.5 text-sm",
-  lg: "h-12 px-1.5 text-sm tracking-[0.06em]",
+  sm: "min-h-11 px-3 py-2 text-xs tracking-[0.12em] uppercase sm:min-h-9 sm:px-1.5 sm:py-1",
+  md: "min-h-11 px-3 py-2 text-sm sm:px-1.5",
+  lg: "min-h-12 px-3 py-2 text-sm tracking-[0.06em] sm:px-1.5",
 } as const;
 
 type ButtonVariant = keyof typeof variants;
@@ -41,7 +41,7 @@ export type ButtonProps = ButtonAsButton | ButtonAsLink;
 
 function wrapGhostLabel(children: ReactNode, ghost: boolean) {
   if (!ghost || typeof children !== "string") return children;
-  return <ScrambleText text={children} />;
+  return <><span className="sm:hidden">{children}</span><ScrambleText text={children} className="max-sm:!hidden" /></>;
 }
 
 export function Button({
@@ -53,7 +53,7 @@ export function Button({
 }: ButtonProps) {
   const isGhost = variant === "ghost";
   const classes = cn(
-    "group inline-flex items-center justify-center gap-2 rounded-sm font-semibold transition duration-200",
+    "group inline-flex max-w-full items-center justify-center gap-2 rounded-sm text-center font-semibold whitespace-normal [overflow-wrap:anywhere] transition duration-200",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
     "disabled:pointer-events-none disabled:opacity-45",
     variants[variant],

@@ -674,7 +674,95 @@ html:not([data-ml-intro="1"]) .uc-hero-bottom {
   line-height: 1 !important;
   text-transform: uppercase;
   /* вниз — выровнять с «Ученик / Учитель» */
-  transform: translate(-3.25rem, 0.28em);
+  transform: none;
+}
+
+/* Keep the logo readable and both cabinet links accessible on narrow screens. */
+.site-header {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+@media (max-width: 639px) {
+  .site-header-inner,
+  .site-container {
+    padding-left: max(1rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1rem, env(safe-area-inset-right, 0px));
+  }
+
+  .site-logo {
+    justify-self: end;
+    min-height: 3rem;
+    white-space: nowrap;
+  }
+
+  .main-shell:not(:has(.uc-hero)) {
+    padding-top: calc(6rem + env(safe-area-inset-top, 0px) + 1rem);
+  }
+
+  .uc-slogan,
+  .pixel-intro-copy {
+    font-size: clamp(1rem, 4vw, 1.25rem);
+  }
+
+  .uc-hero-bottom {
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .uc-chip {
+    min-height: 3rem;
+    font-size: 0.8rem;
+  }
+
+  input,
+  textarea,
+  select {
+    /* Prevent iOS focus zoom without disabling pinch-to-zoom. */
+    font-size: 16px;
+    scroll-margin-top: calc(7rem + env(safe-area-inset-top, 0px));
+  }
+
+  input,
+  select {
+    min-height: 44px;
+  }
+
+  .tab-underline {
+    min-height: 44px;
+    flex: 1;
+    padding: 0.75rem 0.25rem;
+    letter-spacing: 0.08em;
+  }
+
+  .uc-footer-video-stage {
+    height: 260px;
+  }
+
+  .uc-footer-credits {
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (pointer: coarse) {
+  button,
+  .uc-chip,
+  .nav-underline,
+  .uc-footer-credits-link {
+    min-height: 44px;
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  button,
+  a,
+  input,
+  textarea,
+  select {
+    touch-action: manipulation;
+  }
 }
 
 @media (min-width: 640px) {

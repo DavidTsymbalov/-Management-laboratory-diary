@@ -32,19 +32,19 @@ const items = [
 
 export function StatsGrid({ stats }: { stats: ClassStats }) {
   return (
-    <section className="grid gap-8 border-t border-[rgb(229_218_195/0.22)] pt-6 sm:grid-cols-2 xl:grid-cols-4">
+    <section className="grid grid-cols-2 gap-4 border-t border-[rgb(229_218_195/0.22)] pt-6 sm:gap-8 xl:grid-cols-4">
       {items.map((item, index) => {
         const Icon = item.icon;
         return (
           <div
             key={item.key}
-            className={`anim-fade-up-delay-${Math.min(index, 3)} space-y-3`}
+            className={`anim-fade-up-delay-${Math.min(index, 3)} min-w-0 space-y-3`}
           >
             <Icon className="h-4 w-4 text-muted-foreground" aria-hidden />
             <p className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               {item.label}
             </p>
-            <p className="font-display text-3xl font-bold tabular-nums tracking-tight">
+            <p className="font-display text-2xl font-bold tabular-nums tracking-tight [overflow-wrap:anywhere] sm:text-3xl">
               {item.format(stats)}
             </p>
           </div>

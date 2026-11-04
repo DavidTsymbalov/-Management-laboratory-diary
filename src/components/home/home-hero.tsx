@@ -56,12 +56,12 @@ export function HomeHero() {
         <span className="uc-slogan-line uc-slogan-line-3">diary</span>
       </h1>
 
-      <Container className="uc-hero-bottom relative z-10 flex min-h-[100svh] flex-col justify-end pb-10 pt-24">
+      <Container className="uc-hero-bottom relative z-10 flex min-h-[100svh] flex-col justify-end pb-10 pt-32 sm:pt-24">
         <div className="flex flex-col items-center gap-5 sm:items-end">
-          <p className="max-w-sm text-center text-[0.72rem] leading-relaxed tracking-wide text-[#e5dac3] sm:text-right">
+          <p className="max-w-sm text-center text-sm leading-relaxed tracking-wide text-[#e5dac3] sm:text-right">
             • Кабинет класса: баллы, ачивки, рейтинг.
           </p>
-          <div className="flex flex-wrap justify-center gap-2 sm:justify-end">
+          <div className="grid w-full max-w-sm grid-cols-2 gap-3 sm:flex sm:w-auto sm:max-w-none sm:flex-wrap sm:justify-end sm:gap-2">
             <Link href={teacherHref} className="uc-chip">
               Учитель
             </Link>

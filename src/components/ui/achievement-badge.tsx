@@ -29,7 +29,7 @@ export function AchievementBadge({
   size = "md",
 }: AchievementBadgeProps) {
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div className={cn("flex min-w-0 items-center gap-2", className)}>
       <div
         className={cn(
           "relative shrink-0 overflow-hidden rounded-full",
@@ -44,7 +44,7 @@ export function AchievementBadge({
           draggable={false}
         />
       </div>
-      <span className="text-sm font-medium text-[#e5dac3]">
+      <span className="min-w-0 text-sm font-medium text-[#e5dac3] [overflow-wrap:anywhere]">
         {title}
       </span>
     </div>

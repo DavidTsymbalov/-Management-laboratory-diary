@@ -39,8 +39,8 @@ export function TeacherCharts({ students }: { students: Student[] }) {
             return (
               <div key={student.id} className="space-y-1.5">
                 <div className="flex justify-between gap-2 text-sm">
-                  <span className="truncate font-medium">{student.name}</span>
-                  <span className="tabular-nums text-muted-foreground">
+                  <span className="min-w-0 truncate font-medium">{student.name}</span>
+                  <span className="shrink-0 tabular-nums text-muted-foreground">
                     {student.nuts}
                   </span>
                 </div>
@@ -68,7 +68,7 @@ export function TeacherCharts({ students }: { students: Student[] }) {
             Ачивки в классе
           </h3>
         </div>
-        <div className="flex items-end justify-center gap-8 pt-2">
+        <div className="flex items-end justify-center gap-4 pt-2 sm:gap-8">
           <Bar
             label="С ачивками"
             value={withAch}

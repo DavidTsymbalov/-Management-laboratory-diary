@@ -22,7 +22,7 @@ export function PasswordInput({
   const inputId = id ?? generatedId;
 
   return (
-    <div className="relative">
+    <div className="relative w-full min-w-0">
       <Input
         id={inputId}
         type={visible ? "text" : "password"}
@@ -32,7 +32,7 @@ export function PasswordInput({
       />
       <button
         type="button"
-        className="absolute right-0 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:h-8 sm:w-8"
         onClick={() => setVisible((value) => !value)}
         aria-label={visible ? toggleLabelHide : toggleLabelShow}
         aria-controls={inputId}

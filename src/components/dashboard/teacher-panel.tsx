@@ -193,7 +193,7 @@ export function TeacherPanel() {
             Учеников в классе: {data.students.length}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
           <Button
             type="button"
             variant="ghost"
@@ -231,7 +231,7 @@ export function TeacherPanel() {
         </div>
       </div>
 
-      <div className="flex gap-6 border-b border-border">
+      <div className="flex gap-3 border-b border-border sm:gap-6">
         {tabs.map((item, index) => (
           <button
             key={item.id}
@@ -259,7 +259,7 @@ export function TeacherPanel() {
         <Card className="space-y-3">
           <p className="text-sm">Сохраните данные входа и передайте каждому ученику только его пароль. Этот список показывается до ухода со страницы.</p>
           <textarea aria-label="Новые данные входа" readOnly rows={Math.min(credentials.length + 1, 10)}
-            className="w-full bg-transparent p-2 text-sm"
+            className="w-full min-w-0 bg-transparent p-2 text-base sm:text-sm"
             value={credentials.map((s) => `${s.name} | ${s.password}`).join("\n")} />
           <Button variant="ghost" onClick={() => setCredentials([])}>Скрыть пароли</Button>
         </Card>
@@ -279,7 +279,7 @@ export function TeacherPanel() {
               value={namesText}
               onChange={(e) => setNamesText(e.target.value)}
               placeholder={"Иванов Иван\nПетрова Анна | …"}
-              className="w-full rounded-none border-0 border-b border-[rgb(229_218_195/0.35)] bg-transparent px-0 py-2.5 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-accent/35"
+              className="w-full min-w-0 rounded-none border-0 border-b border-[rgb(229_218_195/0.35)] bg-transparent px-0 py-2.5 text-base outline-none transition focus-visible:ring-2 focus-visible:ring-accent/35 sm:text-sm"
             />
             <Button type="button" onClick={addMany}>
               Добавить в класс
@@ -292,18 +292,18 @@ export function TeacherPanel() {
             {data.students.length === 0 ? (
               <p className="text-sm text-muted-foreground">Класс пуст.</p>
             ) : (
-              <ul className="max-h-[28rem] space-y-2 overflow-auto">
+              <ul className="space-y-2 sm:max-h-[28rem] sm:overflow-auto">
                 {data.students.map((student) => (
                   <li
                     key={student.id}
                     className="rounded-xl bg-surface/70 p-3"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-3">
                           <NutsBadge value={student.nuts} size="sm" />
                           <div className="min-w-0">
-                            <p className="font-semibold">{student.name}</p>
+                            <p className="font-semibold [overflow-wrap:anywhere]">{student.name}</p>
                             <p className="text-xs text-muted-foreground">
                               ачивок: {student.achievements.length}
                             </p>
@@ -321,8 +321,8 @@ export function TeacherPanel() {
                       </div>
                       <button
                         type="button"
-                        className="rounded p-1 text-danger"
-                        aria-label="Удалить"
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded text-danger"
+                        aria-label={`Удалить ${student.name}`}
                         onClick={() => {
                           if (confirm(`Удалить ${student.name}?`)) {
                             deleteStudent(student.id);
@@ -335,10 +335,10 @@ export function TeacherPanel() {
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
-                    <div className="mt-2 flex items-center gap-2">
+                    <div className="mt-3 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[auto_minmax(0,1fr)_auto]">
                       <Label
                         htmlFor={`pass-${student.id}`}
-                        className="mb-0 shrink-0 text-xs"
+                        className="col-span-2 mb-0 text-xs sm:col-span-1"
                       >
                         Новый пароль
                       </Label>
@@ -396,7 +396,7 @@ export function TeacherPanel() {
                     type="button"
                     onClick={() => toggleStudent(student.id)}
                     className={cn(
-                      "rounded-sm border px-3 py-2 text-sm font-medium text-[#e5dac3] transition",
+                      "min-h-11 max-w-full rounded-sm border px-3 py-2 text-left text-sm font-medium text-[#e5dac3] [overflow-wrap:anywhere] transition",
                       selected
                         ? "border-[#e5dac3] bg-[#e5dac3]/12"
                         : "border-[#e5dac3]/25 bg-surface hover:border-[#e5dac3]/50",
@@ -467,11 +467,11 @@ export function TeacherPanel() {
             ) : (
               <ol className="space-y-2 text-sm">
                 {ranked.map((student, index) => (
-                  <li key={student.id} className="flex justify-between gap-2">
-                    <span>
+                  <li key={student.id} className="flex flex-col justify-between gap-1 sm:flex-row sm:gap-2">
+                    <span className="min-w-0 [overflow-wrap:anywhere]">
                       {index + 1}. {student.name}
                     </span>
-                    <span className="tabular-nums text-muted-foreground">
+                    <span className="shrink-0 tabular-nums text-muted-foreground">
                       {student.nuts} · ачивок {student.achievements.length}
                     </span>
                   </li>
