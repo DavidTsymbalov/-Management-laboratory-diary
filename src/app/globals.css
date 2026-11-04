@@ -123,6 +123,7 @@ body {
   gap: 0;
   background: transparent;
   pointer-events: none;
+  overflow: hidden;
 }
 
 .pixel-transition[data-phase="boot"],

@@ -4,9 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { PUBLIC_BASE } from "@/lib/public-url";
 
-const COLS = 9;
-const ROWS = 6;
-const CELL_COUNT = COLS * ROWS;
+type PixelGrid = { columns: number; rows: number };
+
+function viewportGrid(): PixelGrid {
+  if (typeof window === "undefined") return { columns: 9, rows: 6 };
+  const columns = window.innerWidth < 640 ? 4 : window.innerWidth < 1024 ? 6 : 9;
+  return { columns, rows: Math.ceil(window.innerHeight / (window.innerWidth / columns)) };
+}
 
 const COVER_MS = 1100;
 const HOLD_MS = 420;
@@ -31,9 +35,9 @@ function mulberry32(seed: number) {
   };
 }
 
-function shuffledOrder(seed: number) {
+function shuffledOrder(seed: number, count: number) {
   const rnd = mulberry32(seed);
-  const order = Array.from({ length: CELL_COUNT }, (_, i) => i);
+  const order = Array.from({ length: count }, (_, i) => i);
   for (let i = order.length - 1; i > 0; i -= 1) {
     const j = Math.floor(rnd() * (i + 1));
     const tmp = order[i]!;
@@ -43,15 +47,8 @@ function shuffledOrder(seed: number) {
   return order;
 }
 
-function mosaicTracks(count: number, seed: number) {
-  const rnd = mulberry32(seed);
-  const weights = Array.from({ length: count }, () => 0.55 + rnd() * 1.1);
-  const sum = weights.reduce((a, b) => a + b, 0);
-  return weights.map((w) => `${((w / sum) * 100).toFixed(3)}%`).join(" ");
-}
-
-function allOn(value: boolean) {
-  return Array.from({ length: CELL_COUNT }, () => value);
+function allOn(value: boolean, count: number) {
+  return Array.from({ length: count }, () => value);
 }
 
 function normalizeHref(href: string) {
@@ -76,8 +73,11 @@ function isHomePath(path: string) {
 export function PixelTransition() {
   const router = useRouter();
   const pathname = usePathname();
+  // Boot renders a solid layer on both server and client, before any grid cells.
+  const [grid, setGrid] = useState<PixelGrid>(viewportGrid);
+  const cellCount = grid.columns * grid.rows;
   const [phase, setPhase] = useState<Phase>("boot");
-  const [filled, setFilled] = useState<boolean[]>(() => allOn(true));
+  const [filled, setFilled] = useState<boolean[]>(() => allOn(true, cellCount));
   /** Текст интро рисуем в этом же слое (над пикселями), чтобы его было видно */
   const [showIntroCopy, setShowIntroCopy] = useState(false);
   /** После пикселей оставляем тот же слоган — без сброса на дубль в hero */
@@ -88,11 +88,32 @@ export function PixelTransition() {
   const revealRef = useRef<() => void>(() => undefined);
   const bootedRef = useRef(false);
   const homeIntroRef = useRef(false);
+  const cellCountRef = useRef(cellCount);
+  const goIdleRef = useRef<() => void>(() => undefined);
 
-  const orderCover = useMemo(() => shuffledOrder(0xc0ffee), []);
-  const orderReveal = useMemo(() => shuffledOrder(0xbadc0de), []);
-  const colTracks = useMemo(() => mosaicTracks(COLS, 0x1111), []);
-  const rowTracks = useMemo(() => mosaicTracks(ROWS, 0x2222), []);
+  const orderCover = useMemo(() => shuffledOrder(0xc0ffee, cellCount), [cellCount]);
+  const orderReveal = useMemo(() => shuffledOrder(0xbadc0de, cellCount), [cellCount]);
+
+  useEffect(() => {
+    // Finish the current wave before changing its cell count. CSS keeps cells
+    // square during a resize; the next wave uses the new viewport dimensions.
+    if (phase !== "idle") return;
+    let frame = 0;
+    const resize = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const next = viewportGrid();
+        setGrid((previous) => previous.columns === next.columns && previous.rows === next.rows ? previous : next);
+        setFilled(allOn(false, next.columns * next.rows));
+      });
+    };
+    resize();
+    window.addEventListener("resize", resize);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", resize);
+    };
+  }, [phase]);
 
   const clearTimers = useCallback(() => {
     for (const id of timers.current) window.clearTimeout(id);
@@ -110,7 +131,7 @@ export function PixelTransition() {
       let i = 0;
       while (i < order.length) {
         const batch = i % 3 === 0 ? 3 : i % 2 === 0 ? 2 : 1;
-        const at = Math.round((i / CELL_COUNT) * totalMs);
+        const at = Math.round((i / cellCount) * totalMs);
         const slice = order.slice(i, i + batch);
         schedule(() => {
           setFilled((prev) => {
@@ -122,7 +143,7 @@ export function PixelTransition() {
         i += batch;
       }
     },
-    [schedule],
+    [cellCount, schedule],
   );
 
   const markIntroDone = useCallback(() => {
@@ -139,7 +160,7 @@ export function PixelTransition() {
   const goIdle = useCallback(() => {
     busyRef.current = false;
     markIntroDone();
-    setFilled(allOn(false));
+    setFilled(allOn(false, cellCount));
     setPhase("idle");
     // На главной оставляем тот же слой слогана — иначе «сброс» раскладки
     if (homeIntroRef.current) {
@@ -150,16 +171,21 @@ export function PixelTransition() {
     }
     setShowIntroCopy(false);
     setHomeSloganLive(false);
-  }, [markIntroDone]);
+  }, [cellCount, markIntroDone]);
+
+  useEffect(() => {
+    cellCountRef.current = cellCount;
+    goIdleRef.current = goIdle;
+  }, [cellCount, goIdle]);
 
   const runReveal = useCallback(() => {
     clearTimers();
     busyRef.current = true;
     setPhase("reveal");
-    setFilled(allOn(true));
+    setFilled(allOn(true, cellCount));
     schedule(() => paintWave(false, orderReveal, REVEAL_MS), 40);
     schedule(goIdle, REVEAL_MS + 180);
-  }, [clearTimers, goIdle, orderReveal, paintWave, schedule]);
+  }, [cellCount, clearTimers, goIdle, orderReveal, paintWave, schedule]);
 
   useEffect(() => {
     revealRef.current = runReveal;
@@ -186,12 +212,12 @@ export function PixelTransition() {
       pendingHref.current = target;
       clearHomeSlogan();
       setPhase("cover");
-      setFilled(allOn(false));
+      setFilled(allOn(false, cellCount));
       schedule(() => paintWave(true, orderCover, COVER_MS), 40);
 
       schedule(() => {
         setPhase("hold");
-        setFilled(allOn(true));
+        setFilled(allOn(true, cellCount));
         schedule(() => {
           const next = pendingHref.current;
           pendingHref.current = null;
@@ -204,7 +230,7 @@ export function PixelTransition() {
         }, HOLD_MS);
       }, COVER_MS + 80);
     },
-    [clearHomeSlogan, clearTimers, goIdle, orderCover, paintWave, router, schedule],
+    [cellCount, clearHomeSlogan, clearTimers, goIdle, orderCover, paintWave, router, schedule],
   );
 
   // Boot: на главной — пиксели ждут, пока слоган сложится; иначе сразу пиксели
@@ -213,7 +239,7 @@ export function PixelTransition() {
     bootedRef.current = true;
 
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      const frame = window.requestAnimationFrame(goIdle);
+      const frame = window.requestAnimationFrame(() => goIdleRef.current());
       return () => {
         window.cancelAnimationFrame(frame);
         bootedRef.current = false;
@@ -229,12 +255,12 @@ export function PixelTransition() {
       const frame = window.requestAnimationFrame(() => {
         setShowIntroCopy(true);
         setPhase("intro");
-        setFilled(allOn(true));
+        setFilled(allOn(true, cellCountRef.current));
       });
 
       const toPixels = window.setTimeout(() => {
         setPhase("hold");
-        setFilled(allOn(true));
+        setFilled(allOn(true, cellCountRef.current));
         schedule(() => revealRef.current(), 220);
       }, INTRO_SLIDE_MS + INTRO_HOLD_MS);
 
@@ -254,7 +280,7 @@ export function PixelTransition() {
     markIntroDone();
     const frame = window.requestAnimationFrame(() => {
       setPhase("hold");
-      setFilled(allOn(true));
+      setFilled(allOn(true, cellCountRef.current));
     });
 
     const open = window.setTimeout(() => {
@@ -271,7 +297,7 @@ export function PixelTransition() {
       window.clearTimeout(safety);
       bootedRef.current = false;
     };
-  }, [goIdle, markIntroDone, schedule]);
+  }, [markIntroDone, schedule]);
 
   useEffect(() => {
     function onClick(event: MouseEvent) {
@@ -352,8 +378,8 @@ export function PixelTransition() {
       style={
         showMosaic
           ? {
-              gridTemplateColumns: colTracks,
-              gridTemplateRows: rowTracks,
+              gridTemplateColumns: `repeat(${grid.columns}, calc(100vw / ${grid.columns}))`,
+              gridTemplateRows: `repeat(${grid.rows}, calc(100vw / ${grid.columns}))`,
             }
           : undefined
       }
