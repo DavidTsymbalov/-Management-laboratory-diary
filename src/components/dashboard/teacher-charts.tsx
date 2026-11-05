@@ -11,7 +11,6 @@ export function TeacherCharts({ students }: { students: Student[] }) {
   return <div className="chart-grid">
     <section className="panel chart-panel" aria-labelledby="class-points-chart">
       <div className="chart-heading">
-        <p className="eyebrow">Баллы</p>
         <h2 id="class-points-chart">Первые пять в рейтинге</h2>
       </div>
       <ol className="chart-bars">
@@ -23,10 +22,9 @@ export function TeacherCharts({ students }: { students: Student[] }) {
     </section>
     <section className="panel chart-panel" aria-labelledby="class-coverage-chart">
       <div className="chart-heading">
-        <p className="eyebrow">Достижения</p>
-        <h2 id="class-coverage-chart">Отмеченные успехи</h2>
+        <h2 id="class-coverage-chart">Достижения</h2>
       </div>
-      <div className="coverage-summary"><p className="coverage-count">{withAchievements}<span> / {students.length}</span></p><p className="muted">Учеников с хотя бы одним достижением</p></div>
+      <div className="coverage-summary"><p className="coverage-count">{withAchievements}<span> / {students.length}</span></p><p className="muted">Учеников с достижениями</p></div>
       <div className="coverage-track" aria-hidden="true"><span style={{ width: `${coverage}%` }} /></div>
       <div className="coverage-legend"><span>{coverage}% класса</span><span>Без достижений: {students.length - withAchievements}</span></div>
     </section>

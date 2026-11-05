@@ -10,9 +10,9 @@ import { getCloudRole, signInCloud, type CloudRole } from "@/lib/cloud-store";
 import { cloudError } from "@/lib/supabase";
 
 const copy = {
-  student: { title: "Вход в дневник", description: "Твои баллы, место в классе и достижения.", label: "Имя и фамилия / логин", placeholder: "Как записал преподаватель", help: "Логин и пароль выдаёт преподаватель или администратор класса. Если не получается войти, обратись к ним." },
-  admin: { title: "Вход администратора", description: "Ученики, награды и результаты класса.", label: "Логин", placeholder: "Ваш логин", help: "Аккаунт администратора создаёт преподаватель. Для восстановления доступа обратитесь к нему." },
-  teacher: { title: "Вход преподавателя", description: "Управление классом и доступом администраторов.", label: "Логин", placeholder: "Ваш логин", help: "Используйте данные учётной записи преподавателя. Только преподаватель может назначать администраторов." },
+  student: { title: "Вход в дневник", label: "Имя и фамилия / логин", placeholder: "Как записал преподаватель", help: "Логин и пароль можно получить у преподавателя." },
+  admin: { title: "Вход администратора", label: "Логин", placeholder: "Ваш логин", help: "Доступ выдаёт преподаватель." },
+  teacher: { title: "Вход преподавателя", label: "Логин", placeholder: "Ваш логин", help: "" },
 };
 
 export function AuthForm({ role }: { role: CloudRole["role"] }) {
@@ -58,15 +58,8 @@ export function AuthForm({ role }: { role: CloudRole["role"] }) {
   return (
     <div className="auth-layout">
       <section className="auth-intro" aria-label="О дневнике">
-        <p className="eyebrow">Учебный дневник</p>
-        <div className="auth-editorial-title" aria-hidden>Учиться.<br />{" "}Пробовать.<br /><span>Расти.</span></div>
-        <p className="auth-lead">Результаты занятий складываются в&nbsp;личную историю. Здесь она всегда под&nbsp;рукой.</p>
-        <div className="journal-index" aria-hidden>
-          <span><small>01</small> Баллы за работу</span>
-          <span><small>02</small> Личные достижения</span>
-          <span><small>03</small> Прогресс класса</span>
-        </div>
-        <div className="auth-edition"><span>Management Laboratory</span><span>Дневник класса ↗</span></div>
+        <p className="eyebrow">Дневник класса</p>
+        <div className="auth-editorial-title" aria-hidden>Management<br /><span>Laboratory</span></div>
       </section>
       <section className="auth-form-panel" aria-labelledby="auth-title">
         <nav className="role-switch" aria-label="Выберите роль">
@@ -74,9 +67,7 @@ export function AuthForm({ role }: { role: CloudRole["role"] }) {
           <Link href="/admin/" aria-current={role === "admin" ? "page" : undefined}>Администратор</Link>
         </nav>
         <div className="auth-form-heading">
-          <p className="eyebrow">{role === "teacher" ? "Для преподавателя" : "С возвращением"}</p>
           <h1 id="auth-title">{details.title}</h1>
-          <p className="muted">{details.description}</p>
         </div>
         <form onSubmit={submit} className="auth-form" aria-busy={!ready || busy}>
           <div className="field-stack">
@@ -93,7 +84,7 @@ export function AuthForm({ role }: { role: CloudRole["role"] }) {
             {busy || !ready ? <LoaderCircle size={18} className="is-spinning" aria-hidden /> : <ArrowRight size={18} aria-hidden />}
           </button>
         </form>
-        <p className="auth-help"><LockKeyhole size={16} aria-hidden />{details.help}</p>
+        {details.help && <p className="auth-help"><LockKeyhole size={16} aria-hidden />{details.help}</p>}
         <div className="auth-teacher-link">{role === "teacher" ? <Link href="/student/">Вернуться ко входу ученика <ArrowUpRight size={14} aria-hidden /></Link> : <Link href="/teacher/">Вход для преподавателя <ArrowUpRight size={14} aria-hidden /></Link>}</div>
       </section>
     </div>

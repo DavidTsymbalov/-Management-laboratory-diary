@@ -207,8 +207,7 @@ export function TeacherPanel({ role = "teacher" }: { role?: "teacher" | "admin" 
     </div>;
     return <div className="workspace-loading" role="status">
       <span className="loading-dot" />
-      <h1>Открываем ваш класс</h1>
-      <p>Загружаем учеников и результаты…</p>
+      <h1>Загружаем класс…</h1>
     </div>;
   }
 
@@ -226,33 +225,28 @@ export function TeacherPanel({ role = "teacher" }: { role?: "teacher" | "admin" 
           <p>{roleLabel}</p>
         </div>
       </div>
-      <p className="eyebrow sidebar-label">Рабочее пространство</p>
       <nav aria-label="Разделы кабинета" className="dashboard-nav">{tabs.map(({ id, label, icon: Icon }) => <button key={id} aria-current={tab === id ? "page" : undefined} onClick={() => chooseTab(id)} disabled={busy || adminBusy}>
         <Icon size={19} />
         <span>{label}</span>{id === "class" && <small>{data.students.length}</small>}</button>)}</nav>
-      <div className="sidebar-note">
-        <span className="status-dot" /> Общая база класса<p>Баллы и достижения доступны ученикам в их кабинетах.</p>
-      </div>
       <button className="quiet-action sidebar-logout" disabled={busy || adminBusy} onClick={async () => { try { await signOutCloud(); router.push(`/${role}/`); } catch (e) { setSyncError(cloudError(e)); } }}>
-        <LogOut size={17} /> Выйти из аккаунта</button>
+        <LogOut size={17} /> Выйти</button>
     </aside>
     <div key={tab} className="dashboard-content">
       <header className="page-heading">
         <div>
           <p className="eyebrow">{role === "teacher" ? "Кабинет преподавателя" : "Кабинет администратора"}</p>
-          <h1>{tab === "class" ? "Мой класс" : tab === "award" ? "Выдать награду" : tab === "admins" ? "Администраторы" : "Класс в цифрах"}<span className="heading-dot">.</span>
+          <h1>{tab === "class" ? "Мой класс" : tab === "award" ? "Выдать награду" : tab === "admins" ? "Администраторы" : "Статистика"}<span className="heading-dot">.</span>
           </h1>
-          <p className="page-description">{tab === "class" ? "Ученики, их достижения и доступ к дневнику — в одном месте." : tab === "award" ? "Выберите учеников и выдайте баллы или новое достижение." : tab === "admins" ? "Делегируйте ведение класса людям, которым доверяете." : "Распределение баллов и достижений в классе."}</p>
         </div>{tab === "class" && <button className="action primary" disabled={busy} onClick={() => setShowAdd(!showAdd)} aria-expanded={showAdd} aria-controls="add-students-panel">
           <Plus size={18} /> Добавить учеников</button>}</header>
       {syncError && <div className="notice danger" role="alert"><span>{syncError} Показаны последние загруженные данные.</span><button className="quiet-action" disabled={busy} onClick={() => setAttempt((value) => value + 1)}><RefreshCw size={14} />Обновить</button></div>}
       {tab === "admins" && role === "teacher" ? <AdministratorsPanel onBusyChange={setAdminBusy} /> : <>
-      <div aria-live="polite">{message && <p className="notice success" role="status">
+      <div className="workspace-notices" aria-live="polite">{message && <p className="notice success" role="status">
         <Check size={18} />{message}<button onClick={() => setMessage(null)} aria-label="Закрыть уведомление">×</button>
       </p>}{error && <p className="notice danger" role="alert">{error}</p>}{busy && <p className="notice" role="status">Сохраняем изменения…</p>}</div>
       <fieldset disabled={busy} className="workspace-fields" aria-busy={busy}>
         {credentials.length > 0 && <section className="panel credentials-panel">
-          <h2>Данные для входа готовы</h2>
+          <h2>Данные для входа</h2>
           <p className="muted">Сохраните список. Передайте каждому ученику только его логин и пароль.</p>
           <textarea aria-label="Новые данные входа" readOnly rows={Math.min(credentials.length + 1, 10)} value={credentials.map((s) => `${s.name} | ${s.password}`).join("\n")} />
           <div className="credential-actions"><button className="action secondary" onClick={async () => { try { await navigator.clipboard.writeText(credentials.map((s) => `${s.name} | ${s.password}`).join("\n")); setMessage("Данные для входа скопированы."); } catch { setError("Выделите данные в поле и скопируйте их вручную."); } }}><Copy size={16} />Скопировать</button><button className="quiet-action" onClick={() => setCredentials([])}>Скрыть пароли</button></div>
@@ -260,7 +254,6 @@ export function TeacherPanel({ role = "teacher" }: { role?: "teacher" | "admin" 
         {tab === "class" && <>
           {showAdd && <section id="add-students-panel" className="panel add-panel">
             <div>
-              <p className="eyebrow">Пополнение класса</p>
               <h2>Новые ученики</h2>
               <p className="muted">Каждое имя — с новой строки. Пароли создадим автоматически. Можно задать свой: ФИО | пароль (от 8 символов).</p>
             </div>
@@ -280,7 +273,6 @@ export function TeacherPanel({ role = "teacher" }: { role?: "teacher" | "admin" 
               <div>
                 <h2>Ученики <span className="count-tag">{data.students.length}</span>
                 </h2>
-                <p className="muted">Управляйте аккаунтами и следите за результатами.</p>
               </div>
               <button className="quiet-action" onClick={() => chooseTab("award")}>Выдать награду <ArrowUpRight size={16} />
               </button>
@@ -332,9 +324,9 @@ export function TeacherPanel({ role = "teacher" }: { role?: "teacher" | "admin" 
             </li>)}</ul>
             {!visible.length && <div className="empty-state">
               <Users size={32} />
-              <h3>{query ? "Никого не нашли" : "Начните с первого ученика"}</h3>
-              <p>{query ? "Попробуйте другую часть имени или фамилии." : "Создайте аккаунты, чтобы выдавать баллы и отмечать достижения."}</p>{!query && <button className="action primary" onClick={() => setShowAdd(true)}>Добавить учеников</button>}</div>}
-            <div className="list-footer">Показано: {visible.length} из {data.students.length}<span>Пароли учеников скрыты</span>
+              <h3>{query ? "Ученики не найдены" : "Пока нет учеников"}</h3>
+              {query && <p>Попробуйте другое имя или фамилию.</p>}{!query && <button className="action primary" onClick={() => setShowAdd(true)}>Добавить учеников</button>}</div>}
+            <div className="list-footer">Показано: {visible.length} из {data.students.length}
             </div>
           </section>
         </>}
@@ -363,8 +355,8 @@ export function TeacherPanel({ role = "teacher" }: { role?: "teacher" | "admin" 
           </section>
           <div className="award-actions">
             <section className="panel">
-              <p className="eyebrow">Шаг 02 / баллы</p>
-              <h2>За старание и результат</h2>
+              <p className="eyebrow">Шаг 02</p>
+              <h2>Баллы</h2>
               <p className="muted">Баллы получит каждый выбранный ученик.</p>
               <Label htmlFor="nuts">Количество баллов</Label>
               <Input id="nuts" type="number" step="1" min={-1000000} max={1000000} value={nutsAmount} onChange={(e) => setNutsAmount(e.target.value)} />
@@ -373,8 +365,7 @@ export function TeacherPanel({ role = "teacher" }: { role?: "teacher" | "admin" 
               <p className="field-hint">Отрицательное число уменьшит баланс.</p>
             </section>
             <section className="panel">
-              <p className="eyebrow">Или / достижение</p>
-              <h2>Отметьте особенный успех</h2>
+              <h2>Достижение</h2>
               <Label htmlFor="ach">Название достижения</Label>
               <Input id="ach" maxLength={300} value={achTitle} onChange={(e) => setAchTitle(e.target.value)} placeholder="Например, отличная командная работа" />
               <button className="action secondary full-width" disabled={!selectedIds.length || !achTitle.trim()} onClick={awardAch}>
@@ -395,7 +386,7 @@ export function TeacherPanel({ role = "teacher" }: { role?: "teacher" | "admin" 
               <strong>{student.name}</strong>
               <span className="points-value">{student.nuts.toLocaleString("ru-RU")}<small>баллы</small>
               </span>
-            </li>)}</ol>{!ranked.length && <p className="muted">Здесь появятся результаты учеников.</p>}</section></>}
+            </li>)}</ol>{!ranked.length && <p className="muted">Пока нет учеников.</p>}</section></>}
       </fieldset>
       </>}
     </div>

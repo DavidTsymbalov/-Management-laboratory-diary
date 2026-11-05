@@ -102,7 +102,7 @@ export function AdministratorsPanel({ onBusyChange }: { onBusyChange?: (busy: bo
         <div className="credential-actions"><button type="button" className="action secondary" onClick={() => void copyCredentials()}><Copy size={16} />Скопировать</button><button type="button" className="quiet-action" onClick={() => setCredentials(null)}>Скрыть данные</button></div>
       </section>}
       <section className="panel admin-panel">
-        <div className="section-heading"><div><h2>Доступ к управлению {accounts && <span className="count-tag">{accounts.length}</span>}</h2><p className="muted">Администратор управляет учениками, баллами и достижениями. Добавлять администраторов можете только вы.</p></div>
+        <div className="section-heading"><div><h2>Аккаунты {accounts && <span className="count-tag">{accounts.length}</span>}</h2></div>
           <button type="button" className="action primary" aria-expanded={showForm} aria-controls="admin-create-form" onClick={() => setShowForm((value) => !value)}><Plus size={18} />Добавить администратора</button></div>
         {showForm && <form id="admin-create-form" className="admin-form" onSubmit={createAccount}>
           <h3>Новый администратор</h3>
@@ -114,8 +114,8 @@ export function AdministratorsPanel({ onBusyChange }: { onBusyChange?: (busy: bo
           <p id="admin-login-hint" className="field-hint">Логин — от 3 символов без пробелов. Можно использовать буквы, цифры, точку, дефис и подчёркивание.</p>
           <div className="action-row"><button type="submit" className="action primary">Создать доступ</button><button type="button" className="action secondary" onClick={() => { setShowForm(false); setPassword(""); }}>Отмена</button></div>
         </form>}
-        {accounts === null && !error && <p className="muted" role="status">Загружаем список администраторов…</p>}
-        {accounts?.length === 0 && !showForm && <div className="empty-state"><ShieldCheck size={32} aria-hidden="true" /><h3>Пока управляете только вы</h3><p>Добавьте администратора, чтобы вместе вести класс.</p></div>}
+        {accounts === null && !error && <p className="muted" role="status">Загружаем администраторов…</p>}
+        {accounts?.length === 0 && !showForm && <div className="empty-state"><ShieldCheck size={32} aria-hidden="true" /><h3>Пока нет администраторов</h3></div>}
         {Boolean(accounts?.length) && <ul className="admin-list">{accounts?.map((account) => <li key={account.id} className="admin-account">
           <div className="admin-account-details"><div className="avatar small" aria-hidden="true">{account.name.split(" ").slice(0, 2).map((part) => part[0]).join("")}</div><div><strong>{account.name}</strong><p className="admin-account-meta">Логин: {account.login}</p></div><span className="role-badge">Администратор</span></div>
           <details className="student-settings"><summary aria-label={`Настройки доступа: ${account.name}`}><KeyRound size={16} aria-hidden="true" /><span>Доступ</span><ChevronDown size={14} aria-hidden="true" /></summary>

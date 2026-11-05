@@ -139,8 +139,7 @@ export function StudentCabinet() {
     return (
       <div className="student-loading workspace-loading" role="status">
         <span className="loading-dot" aria-hidden="true" />
-        <h1>Открываем твой дневник</h1>
-        <p>Загружаем баллы и достижения…</p>
+        <h1>Загружаем дневник…</h1>
       </div>
     );
   }
@@ -151,7 +150,6 @@ export function StudentCabinet() {
         <div className="student-heading-copy">
           <p className="eyebrow">Кабинет ученика</p>
           <h1>{me.name}</h1>
-          <p className="page-description">Твои баллы и достижения в одном месте.</p>
         </div>
         <button
           type="button"
@@ -173,29 +171,22 @@ export function StudentCabinet() {
 
       <dl className="student-summary" aria-label="Твои результаты">
         <div className="student-summary-item student-balance">
-          <dt className="student-metric-label">Текущий баланс</dt>
+          <dt className="student-metric-label">Баллы</dt>
           <dd className="student-metric-value">
-            {me.nuts.toLocaleString("ru-RU")} <span>баллов</span>
+            {me.nuts.toLocaleString("ru-RU")}
           </dd>
-          <dd className="student-metric-note">За работу на занятиях и результаты.</dd>
         </div>
         <div className="student-summary-item">
           <dt className="student-metric-label">Место в классе</dt>
           <dd className="student-metric-value">
             {standing ? <>{standing.rank}<span> из {standing.total}</span></> : "—"}
           </dd>
-          <dd className="student-metric-note">
-            {rankError ? "Рейтинг временно недоступен. Попробуй обновить дневник." : "По баллам; при равенстве — по имени."}
-          </dd>
+          {rankError && <dd className="student-metric-note">Рейтинг недоступен. Попробуй обновить.</dd>}
         </div>
         <div className="student-summary-item">
           <dt className="student-metric-label">Достижения</dt>
           <dd className="student-metric-value">{achievements.length.toLocaleString("ru-RU")}</dd>
-          <dd className="student-metric-note">
-            {achievements.length
-              ? <>Последнее — {formatDate(achievements[0].earnedAt)}</>
-              : "Здесь будут отмечены твои успехи."}
-          </dd>
+          {achievements.length > 0 && <dd className="student-metric-note">Последнее — {formatDate(achievements[0].earnedAt)}</dd>}
         </div>
       </dl>
 
@@ -212,7 +203,6 @@ export function StudentCabinet() {
             <span className="student-empty-symbol"><Award size={26} strokeWidth={1.4} aria-hidden="true" /></span>
             <div>
               <h3>Пока нет достижений</h3>
-              <p>Когда преподаватель или администратор выдаст тебе достижение, оно появится здесь вместе с датой.</p>
             </div>
           </div>
         ) : (
@@ -236,13 +226,6 @@ export function StudentCabinet() {
       </section>
 
       <div className="student-sync">
-        <p className={`student-sync-status${error || rankError ? " is-stale" : ""}`}>
-          <span className="status-dot" aria-hidden="true" />
-          {error ? "Не удалось обновить" : (
-            <>Обновлено в <time dateTime={data.updatedAt}>{new Date(data.updatedAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}</time></>
-          )}
-          <span className="student-sync-note">Данные обновляются автоматически</span>
-        </p>
         <button
           type="button"
           className="quiet-action student-refresh"
