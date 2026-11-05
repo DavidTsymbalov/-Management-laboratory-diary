@@ -236,7 +236,7 @@ export function TeacherPanel({ role = "teacher" }: { role?: "teacher" | "admin" 
       <button className="quiet-action sidebar-logout" disabled={busy || adminBusy} onClick={async () => { try { await signOutCloud(); router.push(`/${role}/`); } catch (e) { setSyncError(cloudError(e)); } }}>
         <LogOut size={17} /> Выйти из аккаунта</button>
     </aside>
-    <div className="dashboard-content">
+    <div key={tab} className="dashboard-content">
       <header className="page-heading">
         <div>
           <p className="eyebrow">{role === "teacher" ? "Кабинет преподавателя" : "Кабинет администратора"}</p>

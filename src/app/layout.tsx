@@ -31,7 +31,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#141512",
+  themeColor: "#191c21",
 };
 
 const fontBase = process.env.NEXT_PUBLIC_BASE_PATH ?? "";

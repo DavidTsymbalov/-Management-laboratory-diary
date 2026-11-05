@@ -10,6 +10,7 @@ export function MainShell({ children }: { children: ReactNode }) {
 
   return (
     <main
+      key={pathname}
       id="main-content"
       tabIndex={-1}
       className={cn(

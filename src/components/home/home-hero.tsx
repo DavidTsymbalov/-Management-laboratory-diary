@@ -3,10 +3,15 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, Pause, Play } from "lucide-react";
+import { ScrambleText } from "@/components/motion/scramble-text";
 import { publicUrl } from "@/lib/public-url";
+
+const films = ["/media/hero.mp4", "/media/showreel.mp4"];
 
 export function HomeHero() {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const playbackChoice = useRef<"auto" | "play" | "pause">("auto");
+  const [film, setFilm] = useState(0);
   const [playing, setPlaying] = useState(false);
 
   useEffect(() => {
@@ -14,13 +19,34 @@ export function HomeHero() {
     const video = videoRef.current;
     if (!video) return;
     const sync = () => {
-      if (media.matches) video.pause();
+      if (document.hidden || playbackChoice.current === "pause" || (media.matches && playbackChoice.current !== "play")) video.pause();
       else void video.play().catch(() => undefined);
     };
+    const onMotionPreference = () => {
+      if (media.matches && playbackChoice.current === "play") playbackChoice.current = "auto";
+      sync();
+    };
     sync();
-    media.addEventListener("change", sync);
-    return () => media.removeEventListener("change", sync);
-  }, []);
+    media.addEventListener("change", onMotionPreference);
+    document.addEventListener("visibilitychange", sync);
+    return () => {
+      media.removeEventListener("change", onMotionPreference);
+      document.removeEventListener("visibilitychange", sync);
+      video.pause();
+    };
+  }, [film]);
+
+  const togglePlayback = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      playbackChoice.current = "play";
+      void video.play().catch(() => undefined);
+    } else {
+      playbackChoice.current = "pause";
+      video.pause();
+    }
+  };
 
   return <div className="landing">
     <section className="landing-hero" aria-labelledby="landing-title">
@@ -36,12 +62,10 @@ export function HomeHero() {
         <Link href="/teacher/" className="landing-teacher">Вход для преподавателя <ArrowUpRight size={14} aria-hidden /></Link>
       </div>
       <figure className="landing-art">
-        <video ref={videoRef} className="landing-video" muted loop playsInline preload="metadata" poster={publicUrl("/media/hero-poster.jpg")} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} aria-hidden>
-          <source src={publicUrl("/media/hero.mp4")} type="video/mp4" />
-        </video>
-        <div className="landing-art-top" aria-hidden><span>ML / DIARY</span><span>Личный результат.<br />Общее движение.</span></div>
+        <video key={film} ref={videoRef} className="landing-video" src={publicUrl(films[film])} muted playsInline preload="metadata" poster={publicUrl(film === 0 ? "/media/hero-poster.jpg" : "/media/showreel-poster.jpg")} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setFilm((current) => (current + 1) % films.length)} aria-hidden />
+        <div className="landing-art-top" aria-hidden><span><ScrambleText text="ML / DIARY" playOnMount mountDelayMs={220} /></span><span>Личный результат.<br />Общее движение.</span></div>
         <div className="landing-art-word" aria-hidden>Keep<br /><span>growing.</span></div>
-        <figcaption className="landing-art-caption"><span>Management Laboratory<br /><small>Пространство для роста</small></span><button type="button" className="video-control" aria-label={playing ? "Остановить фоновое видео" : "Включить фоновое видео"} onClick={() => { const video = videoRef.current; if (video) { if (video.paused) void video.play().catch(() => undefined); else video.pause(); } }}>{playing ? <Pause size={16} aria-hidden /> : <Play size={16} aria-hidden />}</button></figcaption>
+        <figcaption className="landing-art-caption"><span>Management Laboratory<br /><small>Пространство для роста</small></span><div className="video-controls"><div className="video-scenes" role="group" aria-label="Фоновое видео">{films.map((_, index) => <button key={index} type="button" className="video-scene" aria-label={`Видео ${index + 1}`} aria-pressed={film === index} onClick={() => setFilm(index)}>0{index + 1}</button>)}</div><button type="button" className="video-control" aria-label={playing ? "Остановить фоновое видео" : "Включить фоновое видео"} onClick={togglePlayback}>{playing ? <Pause size={16} aria-hidden /> : <Play size={16} aria-hidden />}</button></div></figcaption>
       </figure>
     </section>
     <div className="landing-bottom"><span>Учебный дневник класса</span><span>Создано для тех, кто учится и учит.</span></div>

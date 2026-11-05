@@ -44,9 +44,9 @@ export function PixelTransition() {
     if (target === current) return;
     clearTimers();
     pendingHref.current = null;
-    // Daily actions and role switching stay immediate. The signature mosaic only
-    // accompanies entering or leaving the landing page, and never blocks first paint.
-    if ((target !== "/" && current !== "/") || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    // Restore the signature mosaic between entry pages; daily workspace actions
+    // stay immediate and the first paint is never blocked.
+    if ((target.includes("/dashboard") || current.includes("/dashboard")) || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setPhase("idle");
       router.push(target);
       return;
@@ -83,8 +83,8 @@ export function PixelTransition() {
       if (url.origin !== window.location.origin || !/^https?:$/.test(url.protocol)) return;
       const current = normalizeHref(window.location.href);
       const target = normalizeHref(href);
-      // Let Next.js handle all in-workspace links and same-page anchors normally.
-      if ((current !== "/" && target !== "/") || current === target || url.hash) return;
+      // Let Next.js handle workspace links and same-page anchors normally.
+      if ((current.includes("/dashboard") || target.includes("/dashboard")) || current === target || url.hash) return;
       event.preventDefault();
       go(href);
     };
