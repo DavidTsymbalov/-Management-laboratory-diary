@@ -20,3 +20,7 @@ export async function studentEmail(name: string) {
 export async function teacherEmail(username: string) {
   return `t-${await loginDigest(username)}@teachers.management-laboratory.invalid`;
 }
+
+export async function adminEmail(username: string) {
+  return `a-${await loginDigest(username)}@admins.management-laboratory.invalid`;
+}

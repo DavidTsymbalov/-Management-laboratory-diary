@@ -2,29 +2,33 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
+import { Trash2, Users, Gift, ChartNoAxesCombined, Plus, Search, LogOut, ChevronDown, Check, KeyRound, ArrowUpRight, ShieldCheck, Copy, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
+import { AdministratorsPanel } from "@/components/dashboard/administrators-panel";
+import { ConfirmAction, type Confirmation } from "@/components/dashboard/confirm-action";
 import { StatsGrid } from "@/components/dashboard/stats-grid";
 import { TeacherCharts } from "@/components/dashboard/teacher-charts";
-import { ScrambleText } from "@/components/motion/scramble-text";
-import { NutsBadge } from "@/components/ui/nuts-badge";
-import { AchievementBadge } from "@/components/ui/achievement-badge";
 import { loadData, rankedStudents, type AppData } from "@/lib/store";
-import { addCloudStudents, awardCloudAchievement, awardCloudNuts, getCloudRole,
-  loadCloudData, manageCloudStudents, signOutCloud, watchCloudData, type StudentInput } from "@/lib/cloud-store";
+import {
+  addCloudStudents, awardCloudAchievement, awardCloudNuts, getCloudRole,
+  loadCloudData, manageCloudStudents, signOutCloud, watchCloudData, type StudentInput, type CloudRole
+} from "@/lib/cloud-store";
 import { cloudError } from "@/lib/supabase";
 import { computeStats } from "@/lib/stats";
-import { pixelNavigate } from "@/lib/pixel-nav";
-import { cn } from "@/lib/cn";
+import { normalizeStudentName } from "@/lib/student-identity";
 
-type Tab = "class" | "award" | "stats";
+type Tab = "class" | "award" | "stats" | "admins";
 
-export function TeacherPanel() {
+export function TeacherPanel({ role = "teacher" }: { role?: "teacher" | "admin" }) {
   const router = useRouter();
+  const [actor, setActor] = useState<CloudRole | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const addField = useRef<HTMLTextAreaElement>(null);
   const [data, setData] = useState<AppData | null>(null);
   const [tab, setTab] = useState<Tab>("class");
   const [namesText, setNamesText] = useState("");
@@ -34,26 +38,36 @@ export function TeacherPanel() {
   const [achTitle, setAchTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [adminBusy, setAdminBusy] = useState(false);
   const locked = useRef(false);
   const [passwords, setPasswords] = useState<Record<string, string>>({});
   const [credentials, setCredentials] = useState<StudentInput[]>([]);
+
+  const [query, setQuery] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
+  const [sort, setSort] = useState("name");
 
   useEffect(() => {
     let active = true;
     async function refresh() {
       if (locked.current) return;
       try {
-        const role = await getCloudRole();
+        const session = await getCloudRole();
         if (!active) return;
-        if (role?.role !== "teacher") { router.replace("/teacher/"); return; }
+        if (session?.role !== role) { router.replace(`/${role}/`); return; }
         const loaded = await loadCloudData();
-        if (active && !locked.current) { setData(loaded); setError(null); }
-      } catch (error) { if (active) setError(cloudError(error)); }
+        if (active && !locked.current) {
+          setActor(session); setData(loaded); setSyncError(null);
+          setSelectedIds((ids) => ids.filter((id) => loaded.students.some((student) => student.id === id)));
+        }
+      } catch (error) { if (active) setSyncError(cloudError(error)); }
     }
     void refresh();
     const stop = watchCloudData(refresh);
     return () => { active = false; stop(); };
-  }, [router]);
+  }, [router, role, attempt]);
+
+  useEffect(() => { if (showAdd && tab === "class") addField.current?.focus(); }, [showAdd, tab]);
 
   const ranked = useMemo(
     () => (data ? rankedStudents(data.students) : []),
@@ -81,7 +95,16 @@ export function TeacherPanel() {
     }
   }
 
+  function chooseTab(next: Tab) {
+    if (busy || adminBusy || (next === "admins" && role !== "teacher")) return;
+    setTab(next);
+    setQuery("");
+    setError(null); setMessage(null);
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+
   function toggleStudent(id: string) {
+    if (!selectedIds.includes(id) && selectedIds.length >= 100) { setError("За один раз можно выбрать до 100 учеников."); return; }
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
@@ -93,19 +116,25 @@ export function TeacherPanel() {
 
   async function createAccounts(students: StudentInput[]) {
     if (students.length < 1 || students.length > 30) throw new Error("Добавляйте от 1 до 30 учеников за раз.");
+    const names = students.map((student) => normalizeStudentName(student.name));
+    if (new Set(names).size !== names.length) throw new Error("В списке повторяются имена. Для полных тёзок добавьте различающий суффикс — он будет частью логина.");
     const result = await addCloudStudents(students);
     setCredentials(students.filter((s) => result.created.includes(s.name)));
-    if (!result.errors.length) setNamesText("");
-    return `Добавлено: ${result.created.length}.${result.errors.length ? ` ${result.errors.join(" ")}` : ""}`;
+    if (!result.created.length && result.errors.length) throw new Error(result.errors.join(" "));
+    setNamesText(students.filter((student) => !result.created.includes(student.name)).map((student) => `${student.name} | ${student.password}`).join("\n"));
+    if (result.errors.length) setError(result.errors.join(" "));
+    return `Аккаунтов создано: ${result.created.length}. Передайте ученикам данные для входа.`;
   }
 
   function addMany() {
     void runAction(async () => {
       const students = namesText.split("\n").filter((line) => line.trim()).map((line) => {
-        const [name, password] = line.split("|").map((part) => part.trim());
+        const separator = line.indexOf("|");
+        const name = (separator < 0 ? line : line.slice(0, separator)).trim();
+        const password = separator < 0 ? "" : line.slice(separator + 1).trim();
         return { name: name.replace(/\s+/gu, " "), password: password || randomPassword() };
       });
-      if (students.some((s) => !s.name || s.password.length < 8)) throw new Error("Укажите ФИО и пароль минимум из 8 символов, либо оставьте пароль пустым.");
+      if (students.some((s) => !s.name || s.name.length > 200 || s.password.length < 8 || s.password.length > 128)) throw new Error("Укажите ФИО и пароль минимум из 8 символов, либо оставьте пароль пустым.");
       return createAccounts(students);
     });
   }
@@ -113,11 +142,12 @@ export function TeacherPanel() {
   function importLocal() {
     const local = loadData();
     if (!local.students.length) { setError("На этом устройстве нет старых учеников для переноса."); return; }
-    if (!confirm(`Перенести ${local.students.length} учеников с этого устройства в общую базу? Для коротких паролей будут созданы новые.`)) return;
-    void runAction(() => createAccounts(local.students.map((s) => ({
-      ...s, name: s.name.trim().replace(/\s+/gu, " "),
-      password: s.password.length >= 8 ? s.password : randomPassword(),
-    }))));
+    setConfirmation({ title: "Перенести учеников?", description: `В общую базу будут добавлены ученики с этого устройства: ${local.students.length}. Для коротких паролей создадим новые.`, label: "Перенести", onConfirm: () => {
+      void runAction(() => createAccounts(local.students.map((s) => ({
+        ...s, name: s.name.trim().replace(/\s+/gu, " "),
+        password: s.password.length >= 8 ? s.password : randomPassword(),
+      }))));
+    } });
   }
 
   function deleteStudent(id: string) {
@@ -131,7 +161,7 @@ export function TeacherPanel() {
   function changePassword(id: string) {
     void runAction(async () => {
       const password = passwords[id] ?? "";
-      if (password.length < 8) throw new Error("Пароль должен содержать минимум 8 символов.");
+      if (password.length < 8 || password.length > 128) throw new Error("Пароль должен содержать минимум 8 символов.");
       await manageCloudStudents({ action: "password", id, password });
       setPasswords((prev) => ({ ...prev, [id]: "" }));
       return "Новый пароль сохранён.";
@@ -143,15 +173,17 @@ export function TeacherPanel() {
       setMessage("Выберите учеников.");
       return;
     }
-    const amount = Math.trunc(Number(nutsAmount));
-    if (!Number.isFinite(amount) || amount === 0) {
-      setMessage("Укажите число баллов.");
+    const amount = Number(nutsAmount);
+    if (!Number.isInteger(amount) || amount === 0 || Math.abs(amount) > 1000000) {
+      setError("Укажите целое число от −1 000 000 до 1 000 000, кроме нуля.");
       return;
     }
-    void runAction(async () => {
+    const award = () => { void runAction(async () => {
       await awardCloudNuts(selectedIds, amount);
-      return `Баллы выданы: ${amount > 0 ? "+" : ""}${amount} × ${selectedIds.length}`;
-    });
+      return `${amount > 0 ? "Начислено" : "Списано"}: ${Math.abs(amount).toLocaleString("ru-RU")} баллов каждому. Учеников: ${selectedIds.length}.`;
+    }); };
+    if (amount < 0) setConfirmation({ title: "Уменьшить баланс?", description: `У каждого выбранного ученика (${selectedIds.length}) будет списано ${Math.abs(amount).toLocaleString("ru-RU")} баллов. Баланс не станет отрицательным.`, label: "Списать баллы", destructive: true, onConfirm: award });
+    else award();
   }
 
   function awardAch() {
@@ -162,325 +194,210 @@ export function TeacherPanel() {
     void runAction(async () => {
       await awardCloudAchievement(selectedIds, achTitle);
       setAchTitle("");
-      return `Ачивка выдана × ${selectedIds.length}`;
+      return `Достижение «${achTitle.trim()}» выдано. Учеников: ${selectedIds.length}.`;
     });
   }
 
   if (!data) {
-    if (error) return <div role="alert" className="space-y-3"><p>{error}</p><Button onClick={() => window.location.reload()}>Повторить</Button><Button href="/teacher/">Ко входу</Button></div>;
-    return <p className="text-muted-foreground">Загрузка…</p>;
+    if (syncError) return <div className="student-error">
+      <h1>Не удалось открыть класс</h1>
+      <p role="alert">{syncError}</p>
+      <div className="student-error-actions"><Button onClick={() => setAttempt((value) => value + 1)}>Повторить</Button>
+      <Button href={`/${role}/`}>Ко входу</Button></div>
+    </div>;
+    return <div className="workspace-loading" role="status">
+      <span className="loading-dot" />
+      <h1>Открываем ваш класс</h1>
+      <p>Загружаем учеников и результаты…</p>
+    </div>;
   }
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "class", label: "Класс" },
-    { id: "award", label: "Выдача" },
-    { id: "stats", label: "Графики" },
-  ];
+  const visible = data.students.filter((s) => s.name.toLocaleLowerCase("ru").includes(query.trim().toLocaleLowerCase("ru"))).sort((a, b) => sort === "points" ? b.nuts - a.nuts : a.name.localeCompare(b.name, "ru"));
+  const tabs: {id: Tab; label: string; icon: typeof Users}[] = [{ id: "class", label: "Мой класс", icon: Users }, { id: "award", label: "Наградить", icon: Gift }, { id: "stats", label: "Статистика", icon: ChartNoAxesCombined }, ...(role === "teacher" ? [{id: "admins" as const, label: "Администраторы", icon: ShieldCheck}] : [])];
 
-  return (
-    <fieldset disabled={busy} className="min-w-0 space-y-8 border-0 p-0">
-      {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
-      {busy ? <p role="status" className="text-sm text-muted-foreground">Сохраняем изменения…</p> : null}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+  const roleLabel = role === "teacher" ? "Преподаватель" : "Администратор";
+  const displayName = actor?.name || roleLabel;
+  return <><div className="dashboard-layout">
+    <aside className="dashboard-sidebar">
+      <div className="profile-block">
+        <div className="avatar" aria-hidden="true">{displayName.split(" ").slice(0, 2).map((part) => part[0]).join("")}</div>
         <div>
-          <p className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            Учитель · Андрей Лякин
-          </p>
-          <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">
-            Кабинет
+          <strong>{displayName}</strong>
+          <p>{roleLabel}</p>
+        </div>
+      </div>
+      <p className="eyebrow sidebar-label">Рабочее пространство</p>
+      <nav aria-label="Разделы кабинета" className="dashboard-nav">{tabs.map(({ id, label, icon: Icon }) => <button key={id} aria-current={tab === id ? "page" : undefined} onClick={() => chooseTab(id)} disabled={busy || adminBusy}>
+        <Icon size={19} />
+        <span>{label}</span>{id === "class" && <small>{data.students.length}</small>}</button>)}</nav>
+      <div className="sidebar-note">
+        <span className="status-dot" /> Общая база класса<p>Баллы и достижения доступны ученикам в их кабинетах.</p>
+      </div>
+      <button className="quiet-action sidebar-logout" disabled={busy || adminBusy} onClick={async () => { try { await signOutCloud(); router.push(`/${role}/`); } catch (e) { setSyncError(cloudError(e)); } }}>
+        <LogOut size={17} /> Выйти из аккаунта</button>
+    </aside>
+    <div className="dashboard-content">
+      <header className="page-heading">
+        <div>
+          <p className="eyebrow">{role === "teacher" ? "Кабинет преподавателя" : "Кабинет администратора"}</p>
+          <h1>{tab === "class" ? "Мой класс" : tab === "award" ? "Выдать награду" : tab === "admins" ? "Администраторы" : "Класс в цифрах"}<span className="heading-dot">.</span>
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Учеников в классе: {data.students.length}
-          </p>
-        </div>
-        <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              if (!confirm("Удалить весь класс и аккаунты учеников из общей базы?")) return;
-              void runAction(async () => {
-                for (const student of data.students) await manageCloudStudents({ action: "delete", id: student.id });
-                setSelectedIds([]);
-                return "Класс очищен.";
-              });
-            }}
-          >
-            Сброс
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => pixelNavigate("/")}
-          >
-            На главную
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={async () => {
-              try { await signOutCloud(); pixelNavigate("/teacher/"); }
-              catch (error) { setError(cloudError(error)); }
-            }}
-          >
-            Выйти
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex gap-3 border-b border-border sm:gap-6">
-        {tabs.map((item, index) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setTab(item.id)}
-            className="tab-underline"
-            data-active={tab === item.id}
-          >
-            <ScrambleText
-              text={item.label}
-              playOnMount
-              mountDelayMs={200 + index * 140}
-            />
-          </button>
-        ))}
-      </div>
-
-      {message ? (
-        <p className="anim-pop rounded-xl bg-accent-soft px-4 py-3 text-sm text-foreground">
-          {message}
-        </p>
-      ) : null}
-
-      {credentials.length ? (
-        <Card className="space-y-3">
-          <p className="text-sm">Сохраните данные входа и передайте каждому ученику только его пароль. Этот список показывается до ухода со страницы.</p>
-          <textarea aria-label="Новые данные входа" readOnly rows={Math.min(credentials.length + 1, 10)}
-            className="w-full min-w-0 bg-transparent p-2 text-base sm:text-sm"
-            value={credentials.map((s) => `${s.name} | ${s.password}`).join("\n")} />
-          <Button variant="ghost" onClick={() => setCredentials([])}>Скрыть пароли</Button>
-        </Card>
-      ) : null}
-
-      {tab === "class" ? (
-        <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-          <Card className="space-y-3">
-            <h2 className="font-display text-xl font-semibold">Добавить учеников</h2>
-            <p className="text-sm text-muted-foreground">
-              ФИО с новой строки. Свой пароль — через{" "}
-              <code className="rounded bg-background px-1">ФИО | пароль</code>.
-              {" "}Минимум 8 символов. Если пароль не указан, создадим случайный.
-            </p>
-            <textarea
-              rows={8}
-              value={namesText}
-              onChange={(e) => setNamesText(e.target.value)}
-              placeholder={"Иванов Иван\nПетрова Анна | …"}
-              className="w-full min-w-0 rounded-none border-0 border-b border-[rgb(229_218_195/0.35)] bg-transparent px-0 py-2.5 text-base outline-none transition focus-visible:ring-2 focus-visible:ring-accent/35 sm:text-sm"
-            />
-            <Button type="button" onClick={addMany}>
-              Добавить в класс
-            </Button>
-            <Button type="button" variant="ghost" onClick={importLocal}>Перенести учеников с этого устройства</Button>
-          </Card>
-
-          <Card>
-            <h2 className="mb-3 font-display text-xl font-semibold">Список класса</h2>
-            {data.students.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Класс пуст.</p>
-            ) : (
-              <ul className="space-y-2 sm:max-h-[28rem] sm:overflow-auto">
-                {data.students.map((student) => (
-                  <li
-                    key={student.id}
-                    className="rounded-xl bg-surface/70 p-3"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-3">
-                          <NutsBadge value={student.nuts} size="sm" />
-                          <div className="min-w-0">
-                            <p className="font-semibold [overflow-wrap:anywhere]">{student.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              ачивок: {student.achievements.length}
-                            </p>
-                            {student.achievements[0] ? (
-                              <div className="mt-2">
-                                <AchievementBadge
-                                  icon={student.achievements[0].icon}
-                                  title={student.achievements[0].title}
-                                  size="sm"
-                                />
-                              </div>
-                            ) : null}
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded text-danger"
-                        aria-label={`Удалить ${student.name}`}
-                        onClick={() => {
-                          if (confirm(`Удалить ${student.name}?`)) {
-                            deleteStudent(student.id);
-                            setSelectedIds((prev) =>
-                              prev.filter((id) => id !== student.id),
-                            );
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <div className="mt-3 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[auto_minmax(0,1fr)_auto]">
-                      <Label
-                        htmlFor={`pass-${student.id}`}
-                        className="col-span-2 mb-0 text-xs sm:col-span-1"
-                      >
-                        Новый пароль
-                      </Label>
-                      <PasswordInput
-                        id={`pass-${student.id}`}
-                        value={passwords[student.id] ?? ""}
-                        onChange={(e) => setPasswords((prev) => ({ ...prev, [student.id]: e.target.value }))}
-                        placeholder="От 8 символов"
-                        className="h-9"
-                        autoComplete="off"
-                      />
-                      <Button size="sm" onClick={() => changePassword(student.id)}>Сохранить</Button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-        </div>
-      ) : null}
-
-      {tab === "award" ? (
-        <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-          <Card className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="font-display text-xl font-semibold">Кому</h2>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedIds(data.students.map((s) => s.id))}
-                >
-                  Все
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedIds([])}
-                >
-                  Снять
-                </Button>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Выбрано: {selectedIds.length}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {data.students.map((student) => {
-                const selected = selectedIds.includes(student.id);
-                return (
-                  <button
-                    key={student.id}
-                    type="button"
-                    onClick={() => toggleStudent(student.id)}
-                    className={cn(
-                      "min-h-11 max-w-full rounded-sm border px-3 py-2 text-left text-sm font-medium text-[#e5dac3] [overflow-wrap:anywhere] transition",
-                      selected
-                        ? "border-[#e5dac3] bg-[#e5dac3]/12"
-                        : "border-[#e5dac3]/25 bg-surface hover:border-[#e5dac3]/50",
-                    )}
-                  >
-                    {student.name}
-                  </button>
-                );
-              })}
-            </div>
-          </Card>
-
-          <Card className="space-y-4">
-            <h2 className="font-display text-xl font-semibold">Что выдать</h2>
+          <p className="page-description">{tab === "class" ? "Ученики, их достижения и доступ к дневнику — в одном месте." : tab === "award" ? "Выберите учеников и выдайте баллы или новое достижение." : tab === "admins" ? "Делегируйте ведение класса людям, которым доверяете." : "Распределение баллов и достижений в классе."}</p>
+        </div>{tab === "class" && <button className="action primary" disabled={busy} onClick={() => setShowAdd(!showAdd)} aria-expanded={showAdd} aria-controls="add-students-panel">
+          <Plus size={18} /> Добавить учеников</button>}</header>
+      {syncError && <div className="notice danger" role="alert"><span>{syncError} Показаны последние загруженные данные.</span><button className="quiet-action" disabled={busy} onClick={() => setAttempt((value) => value + 1)}><RefreshCw size={14} />Обновить</button></div>}
+      {tab === "admins" && role === "teacher" ? <AdministratorsPanel onBusyChange={setAdminBusy} /> : <>
+      <div aria-live="polite">{message && <p className="notice success" role="status">
+        <Check size={18} />{message}<button onClick={() => setMessage(null)} aria-label="Закрыть уведомление">×</button>
+      </p>}{error && <p className="notice danger" role="alert">{error}</p>}{busy && <p className="notice" role="status">Сохраняем изменения…</p>}</div>
+      <fieldset disabled={busy} className="workspace-fields" aria-busy={busy}>
+        {credentials.length > 0 && <section className="panel credentials-panel">
+          <h2>Данные для входа готовы</h2>
+          <p className="muted">Сохраните список. Передайте каждому ученику только его логин и пароль.</p>
+          <textarea aria-label="Новые данные входа" readOnly rows={Math.min(credentials.length + 1, 10)} value={credentials.map((s) => `${s.name} | ${s.password}`).join("\n")} />
+          <div className="credential-actions"><button className="action secondary" onClick={async () => { try { await navigator.clipboard.writeText(credentials.map((s) => `${s.name} | ${s.password}`).join("\n")); setMessage("Данные для входа скопированы."); } catch { setError("Выделите данные в поле и скопируйте их вручную."); } }}><Copy size={16} />Скопировать</button><button className="quiet-action" onClick={() => setCredentials([])}>Скрыть пароли</button></div>
+        </section>}
+        {tab === "class" && <>
+          {showAdd && <section id="add-students-panel" className="panel add-panel">
             <div>
-              <Label htmlFor="nuts">Баллы</Label>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Input
-                  id="nuts"
-                  type="number"
-                  className="w-28"
-                  value={nutsAmount}
-                  onChange={(e) => setNutsAmount(e.target.value)}
-                />
-                {[1, 5, 10].map((n) => (
-                  <Button
-                    key={n}
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => setNutsAmount(String(n))}
-                  >
-                    {n}
-                  </Button>
-                ))}
-                <Button type="button" onClick={awardNuts}>
-                  Выдать баллы
-                </Button>
-              </div>
+              <p className="eyebrow">Пополнение класса</p>
+              <h2>Новые ученики</h2>
+              <p className="muted">Каждое имя — с новой строки. Пароли создадим автоматически. Можно задать свой: ФИО | пароль (от 8 символов).</p>
             </div>
             <div>
-              <Label htmlFor="ach">Ачивка</Label>
-              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                <Input
-                  id="ach"
-                  value={achTitle}
-                  onChange={(e) => setAchTitle(e.target.value)}
-                  placeholder="свой текст"
-                  className="flex-1"
-                />
-                <Button type="button" variant="secondary" onClick={awardAch}>
-                  Выдать ачивку
-                </Button>
+              <label htmlFor="new-students">Имена и фамилии</label>
+              <textarea ref={addField} id="new-students" rows={4} value={namesText} onChange={(e) => setNamesText(e.target.value)} placeholder={"Иванов Иван\nПетрова Анна"} />
+              <div className="action-row">
+                <button className="action primary" disabled={!namesText.trim()} onClick={addMany}>Создать аккаунты</button>
+                <button className="action secondary" onClick={() => setShowAdd(false)}>Отмена</button>
               </div>
+              <button className="quiet-action import-action" onClick={importLocal}>Перенести старый класс с этого устройства ↗</button>
             </div>
-          </Card>
-        </div>
-      ) : null}
-
-      {tab === "stats" ? (
-        <div className="space-y-4">
+          </section>}
+          <StatsGrid stats={stats} />
+          <section className="panel class-panel">
+            <div className="section-heading">
+              <div>
+                <h2>Ученики <span className="count-tag">{data.students.length}</span>
+                </h2>
+                <p className="muted">Управляйте аккаунтами и следите за результатами.</p>
+              </div>
+              <button className="quiet-action" onClick={() => chooseTab("award")}>Выдать награду <ArrowUpRight size={16} />
+              </button>
+            </div>
+            <div className="list-toolbar">
+              <div className="search-field">
+                <Search size={18} />
+                <input aria-label="Найти ученика" placeholder="Найти по имени или фамилии" value={query} onChange={(e) => setQuery(e.target.value)} />
+              </div>
+              <select aria-label="Сортировка учеников" value={sort} onChange={(e) => setSort(e.target.value)}>
+                <option value="name">По имени</option>
+                <option value="points">По баллам</option>
+              </select>
+            </div>
+            <div className="student-table-head" aria-hidden="true">
+              <span>Ученик</span>
+              <span>Баллы</span>
+              <span>Достижения</span>
+              <span>Доступ</span>
+            </div>
+            <ul className="student-list">{visible.map((student) => <li key={student.id} className="student-entry">
+              <div className="student-row">
+                <div className="student-identity">
+                  <div className="avatar small" aria-hidden="true">{student.name.split(" ").slice(0, 2).map((n) => n[0]).join("")}</div>
+                  <div>
+                    <strong>{student.name}</strong>
+                    <span className="student-meta">Ученик</span>
+                  </div>
+                </div>
+                <span className="points-value">{student.nuts.toLocaleString("ru-RU")}<small>баллы</small>
+                </span>
+                <span className="achievement-value">{student.achievements.length}<small>награды</small>
+                </span>
+                <details className="student-settings">
+                  <summary aria-label={`Доступ: ${student.name}`}>
+                    <KeyRound size={16} />
+                    <span>Доступ</span>
+                    <ChevronDown size={14} />
+                  </summary>
+                  <form className="student-settings-body" onSubmit={(event) => { event.preventDefault(); changePassword(student.id); }}>
+                    <label htmlFor={`pass-${student.id}`}>Новый пароль</label>
+                    <PasswordInput id={`pass-${student.id}`} maxLength={128} value={passwords[student.id] ?? ""} onChange={(e) => setPasswords((prev) => ({ ...prev, [student.id]: e.target.value }))} placeholder="От 8 символов" autoComplete="new-password" />
+                    <button type="submit" className="action secondary" disabled={(passwords[student.id] ?? "").length < 8}>Сохранить пароль</button>
+                    <button type="button" className="quiet-action danger-text" onClick={() => setConfirmation({ title: "Удалить ученика?", description: `Аккаунт ${student.name}, баллы и достижения будут удалены. Это действие нельзя отменить.`, label: "Удалить ученика", destructive: true, onConfirm: () => deleteStudent(student.id) })}>
+                      <Trash2 size={16} />Удалить ученика</button>
+                  </form>
+                </details>
+              </div>
+            </li>)}</ul>
+            {!visible.length && <div className="empty-state">
+              <Users size={32} />
+              <h3>{query ? "Никого не нашли" : "Начните с первого ученика"}</h3>
+              <p>{query ? "Попробуйте другую часть имени или фамилии." : "Создайте аккаунты, чтобы выдавать баллы и отмечать достижения."}</p>{!query && <button className="action primary" onClick={() => setShowAdd(true)}>Добавить учеников</button>}</div>}
+            <div className="list-footer">Показано: {visible.length} из {data.students.length}<span>Пароли учеников скрыты</span>
+            </div>
+          </section>
+        </>}
+        {tab === "award" && <div className="award-layout">
+          <section className="panel">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Шаг 01</p>
+                <h2>Выберите учеников</h2>
+              </div>
+              <span className="count-tag">{selectedIds.length} выбрано</span>
+            </div>
+            <div className="search-field">
+              <Search size={18} />
+              <input aria-label="Поиск получателей" placeholder="Поиск по имени" value={query} onChange={(e) => setQuery(e.target.value)} />
+            </div>
+            <div className="selection-tools">
+              <button className="quiet-action" disabled={!visible.length} onClick={() => { const next = Array.from(new Set([...selectedIds, ...visible.map((s) => s.id)])); if (next.length > 100) { setError("За один раз можно выбрать до 100 учеников. Уточните поиск."); return; } setSelectedIds(next); }}>Выбрать найденных</button>
+              <button className="quiet-action" disabled={!selectedIds.length} onClick={() => setSelectedIds([])}>Снять выбор</button>
+            </div>
+            <div className="recipient-list">{visible.map((student) => <label key={student.id} className="recipient" data-selected={selectedIds.includes(student.id)}>
+              <input type="checkbox" checked={selectedIds.includes(student.id)} onChange={() => toggleStudent(student.id)} />
+              <span>{student.name}</span>
+              <small>{student.nuts.toLocaleString("ru-RU")} б.</small>
+            </label>)}{!visible.length && <p className="muted">Ученики не найдены.</p>}</div>
+          </section>
+          <div className="award-actions">
+            <section className="panel">
+              <p className="eyebrow">Шаг 02 / баллы</p>
+              <h2>За старание и результат</h2>
+              <p className="muted">Баллы получит каждый выбранный ученик.</p>
+              <Label htmlFor="nuts">Количество баллов</Label>
+              <Input id="nuts" type="number" step="1" min={-1000000} max={1000000} value={nutsAmount} onChange={(e) => setNutsAmount(e.target.value)} />
+              <div className="quick-amounts">{[1, 5, 10, 25].map((n) => <button className="action secondary" key={n} aria-pressed={nutsAmount === String(n)} onClick={() => setNutsAmount(String(n))}>+{n}</button>)}</div>
+              <button className="action primary full-width" disabled={!selectedIds.length || !Number.isInteger(Number(nutsAmount)) || Number(nutsAmount) === 0 || Math.abs(Number(nutsAmount)) > 1000000} onClick={awardNuts}>{Number(nutsAmount) < 0 ? "Списать баллы" : "Выдать баллы"} · {selectedIds.length} чел.</button>
+              <p className="field-hint">Отрицательное число уменьшит баланс.</p>
+            </section>
+            <section className="panel">
+              <p className="eyebrow">Или / достижение</p>
+              <h2>Отметьте особенный успех</h2>
+              <Label htmlFor="ach">Название достижения</Label>
+              <Input id="ach" maxLength={300} value={achTitle} onChange={(e) => setAchTitle(e.target.value)} placeholder="Например, отличная командная работа" />
+              <button className="action secondary full-width" disabled={!selectedIds.length || !achTitle.trim()} onClick={awardAch}>
+                <Gift size={17} />Выдать достижение</button>
+            </section>
+          </div>
+        </div>}
+        {tab === "stats" && <>
           <StatsGrid stats={stats} />
           <TeacherCharts students={data.students} />
-          <Card>
-            <h2 className="mb-3 font-display text-xl font-semibold">Таблица рейтинга</h2>
-            {ranked.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Пусто</p>
-            ) : (
-              <ol className="space-y-2 text-sm">
-                {ranked.map((student, index) => (
-                  <li key={student.id} className="flex flex-col justify-between gap-1 sm:flex-row sm:gap-2">
-                    <span className="min-w-0 [overflow-wrap:anywhere]">
-                      {index + 1}. {student.name}
-                    </span>
-                    <span className="shrink-0 tabular-nums text-muted-foreground">
-                      {student.nuts} · ачивок {student.achievements.length}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </Card>
-        </div>
-      ) : null}
-    </fieldset>
-  );
+          <section className="panel">
+            <div className="section-heading">
+              <h2>Рейтинг класса</h2>
+              <span className="muted">По количеству баллов</span>
+            </div>
+            <ol className="ranking-list">{ranked.map((student, index) => <li key={student.id}>
+              <span className="rank-number">{String(index + 1).padStart(2, "0")}</span>
+              <strong>{student.name}</strong>
+              <span className="points-value">{student.nuts.toLocaleString("ru-RU")}<small>баллы</small>
+              </span>
+            </li>)}</ol>{!ranked.length && <p className="muted">Здесь появятся результаты учеников.</p>}</section></>}
+      </fieldset>
+      </>}
+    </div>
+  </div><ConfirmAction confirmation={confirmation} onCancel={() => setConfirmation(null)} /></>;
 }

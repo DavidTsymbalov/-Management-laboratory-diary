@@ -37,7 +37,7 @@ export function NutsBadge({ value, size = "lg", className }: NutsBadgeProps) {
         className={cn(
           "relative z-10 font-display font-bold leading-none tabular-nums text-white",
           "drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]",
-          dim.text,
+          String(Math.abs(value)).length > 5 ? "text-xl sm:text-2xl" : String(Math.abs(value)).length > 3 ? "text-2xl sm:text-3xl" : dim.text,
         )}
       >
         {value}

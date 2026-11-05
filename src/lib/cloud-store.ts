@@ -3,13 +3,19 @@
 import type { Achievement, Student } from "@/data/seed";
 import type { AppData } from "@/lib/store";
 import { getSupabase } from "@/lib/supabase";
-import { studentEmail, teacherEmail } from "@/lib/student-identity";
-import { setStudentSessionId, setTeacherLoggedIn } from "@/lib/session";
+import { adminEmail, studentEmail, teacherEmail } from "@/lib/student-identity";
+import { setAdminLoggedIn, setStudentSessionId, setTeacherLoggedIn } from "@/lib/session";
 
-export type CloudRole = { role: "teacher" | "student"; id: string };
+export type CloudRole = { role: "teacher" | "admin" | "student"; id: string; name: string };
+export type CloudAdministrator = { id: string; name: string; login: string; createdAt: string };
+
+function missingAdministratorsTable(error: { code?: string } | null) {
+  return error?.code === "42P01" || error?.code === "PGRST205";
+}
 
 function rememberRole(role: CloudRole | null) {
   setTeacherLoggedIn(role?.role === "teacher");
+  setAdminLoggedIn(role?.role === "admin");
   setStudentSessionId(role?.role === "student" ? role.id : null);
 }
 
@@ -26,30 +32,43 @@ export async function getCloudRole(): Promise<CloudRole | null> {
     rememberRole(null);
     throw error;
   }
-  if (!user) return null;
-  const teacher = await db.from("teachers").select("user_id").eq("user_id", user.id).maybeSingle();
+  if (!user) {
+    rememberRole(null);
+    return null;
+  }
+  const teacher = await db.from("teachers").select("user_id,name").eq("user_id", user.id).maybeSingle();
   if (teacher.error) throw teacher.error;
   if (teacher.data) {
-    const role = { role: "teacher", id: user.id } as const;
+    const role = { role: "teacher", id: user.id, name: teacher.data.name } as const;
     rememberRole(role);
     return role;
   }
-  const student = await db.from("students").select("id").eq("id", user.id).maybeSingle();
+  const administrator = await db.from("admins").select("user_id,name").eq("user_id", user.id).maybeSingle();
+  // A rolling deployment must not interrupt existing student accounts before SQL is applied.
+  if (administrator.error && !missingAdministratorsTable(administrator.error)) throw administrator.error;
+  if (administrator.data) {
+    const role = { role: "admin", id: user.id, name: administrator.data.name } as const;
+    rememberRole(role);
+    return role;
+  }
+  const student = await db.from("students").select("id,name").eq("id", user.id).maybeSingle();
   if (student.error) throw student.error;
-  const role = student.data ? { role: "student", id: student.data.id } as const : null;
+  const role = student.data ? { role: "student", id: student.data.id, name: student.data.name } as const : null;
   rememberRole(role);
   return role;
 }
 
 export async function signInCloud(login: string, password: string, expected: CloudRole["role"]) {
-  const email = expected === "student" ? await studentEmail(login) : await teacherEmail(login);
+  const email = expected === "student" ? await studentEmail(login) :
+    expected === "admin" ? await adminEmail(login) : await teacherEmail(login);
   const db = getSupabase();
   const { error } = await db.auth.signInWithPassword({ email, password });
   if (error) throw error;
   const role = await getCloudRole();
   if (role?.role !== expected) {
     await signOutCloud();
-    throw new Error(expected === "teacher" ? "Этому аккаунту не назначены права учителя." : "Ученик не найден в классе.");
+    throw new Error(expected === "teacher" ? "Этому аккаунту не назначены права учителя." :
+      expected === "admin" ? "Этому аккаунту не назначены права администратора." : "Ученик не найден в классе.");
   }
   return role;
 }
@@ -102,7 +121,7 @@ export type AddStudentsResult = { created: string[]; errors: string[] };
 export async function manageCloudStudents(body: Record<string, unknown>) {
   const { data: { session }, error: sessionError } = await getSupabase().auth.getSession();
   if (sessionError) throw sessionError;
-  if (!session) throw new Error("Войдите в кабинет учителя.");
+  if (!session) throw new Error("Сессия истекла. Войдите снова.");
   const { data, error } = await getSupabase().functions.invoke("manage-students", {
     body,
     headers: { Authorization: `Bearer ${session.access_token}` },
@@ -120,6 +139,36 @@ export async function manageCloudStudents(body: Record<string, unknown>) {
 
 export async function addCloudStudents(students: StudentInput[]): Promise<AddStudentsResult> {
   return manageCloudStudents({ action: "create", students });
+}
+
+export async function loadCloudAdministrators(): Promise<CloudAdministrator[]> {
+  const { data, error } = await getSupabase().from("admins")
+    .select("user_id,name,login_name,created_at").order("created_at");
+  if (missingAdministratorsTable(error)) {
+    throw new Error("Управление администраторами ещё не подключено. Выполните обновление базы Supabase.");
+  }
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    id: row.user_id, name: row.name, login: row.login_name, createdAt: row.created_at,
+  }));
+}
+
+export type AdministratorInput = { name: string; login: string; password: string };
+export type ManageAdministratorsInput =
+  | ({ action: "create" } & AdministratorInput)
+  | { action: "password"; id: string; password: string }
+  | { action: "delete"; id: string };
+
+export async function manageCloudAdministrators(body: ManageAdministratorsInput): Promise<{
+  administrator?: CloudAdministrator; ok?: boolean;
+}> {
+  return manageCloudStudents({ ...body, action: `${body.action}-admin` });
+}
+
+export async function createCloudAdministrator(input: AdministratorInput): Promise<CloudAdministrator> {
+  const result = await manageCloudAdministrators({ action: "create", ...input });
+  if (!result.administrator) throw new Error("Не удалось получить созданный аккаунт. Обновите список администраторов.");
+  return result.administrator;
 }
 
 /** Refresh while visible and immediately on returning to the tab; no realtime setup required. */

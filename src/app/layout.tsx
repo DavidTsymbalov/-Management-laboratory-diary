@@ -24,14 +24,14 @@ export const metadata: Metadata = {
     default: "Management Laboratory",
     template: "%s · Management Laboratory",
   },
-  description: "Дашборд баллов и ачивок класса. Командный проект №2.",
+  description: "Учебный дневник Management Laboratory: баллы, достижения и результаты класса.",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#080a0d",
+  themeColor: "#141512",
 };
 
 const fontBase = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
