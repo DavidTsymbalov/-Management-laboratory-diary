@@ -16,7 +16,7 @@ export function TeacherCharts({ students }: { students: Student[] }) {
       <ol className="chart-bars">
         {leaders.map((student) => <li key={student.id} className="chart-bar-row">
           <div className="chart-bar-label"><span>{student.name}</span><strong>{student.nuts.toLocaleString("ru-RU")}<span className="sr-only"> баллов</span></strong></div>
-          <div className="chart-track" aria-hidden="true"><div className="chart-bar-fill" style={{ width: `${student.nuts / maxPoints * 100}%` }} /></div>
+          <div className="chart-track" aria-hidden="true"><div className="chart-bar-fill" style={{ width: `${Math.max(0, student.nuts) / maxPoints * 100}%` }} /></div>
         </li>)}
       </ol>
     </section>

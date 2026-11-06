@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowUpRight, Pause, Play } from "lucide-react";
-import { ScrambleText } from "@/components/motion/scramble-text";
+import { ArrowRight, Pause, Play } from "lucide-react";
 import { publicUrl } from "@/lib/public-url";
 
 const films = ["/media/hero.mp4", "/media/showreel.mp4"];
@@ -49,23 +48,23 @@ export function HomeHero() {
   };
 
   return <div className="landing">
-    <section className="landing-hero" aria-labelledby="landing-title">
-      <div className="landing-copy">
-        <p className="eyebrow"><span className="edition-square" aria-hidden /> Management Laboratory</p>
-        <h1 id="landing-title">Дневник<br /><span>класса.</span></h1>
-        <p className="landing-lead">Баллы и достижения учеников.</p>
-        <nav className="entry-list" aria-label="Выберите кабинет">
-          <Link href="/student/" className="entry-link entry-primary"><span className="entry-number">01</span><span className="entry-copy"><strong>Я ученик</strong><small>Посмотреть свои результаты</small></span><ArrowUpRight aria-hidden size={25} /></Link>
-          <Link href="/admin/" className="entry-link"><span className="entry-number">02</span><span className="entry-copy"><strong>Я администратор</strong><small>Управлять классом и наградами</small></span><ArrowUpRight aria-hidden size={25} /></Link>
-        </nav>
-        <Link href="/teacher/" className="landing-teacher">Вход для преподавателя <ArrowUpRight size={14} aria-hidden /></Link>
-      </div>
-      <figure className="landing-art">
+    <section className="landing-stage" aria-labelledby="landing-title">
+      <div className="landing-art">
         <video key={film} ref={videoRef} className="landing-video" src={publicUrl(films[film])} muted playsInline preload="metadata" poster={publicUrl(film === 0 ? "/media/hero-poster.jpg" : "/media/showreel-poster.jpg")} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setFilm((current) => (current + 1) % films.length)} aria-hidden />
-        <div className="landing-art-top" aria-hidden><span><ScrambleText text="ML / DIARY" playOnMount mountDelayMs={220} /></span></div>
-        <figcaption className="landing-art-caption"><span>Management Laboratory</span><div className="video-controls"><div className="video-scenes" role="group" aria-label="Фоновое видео">{films.map((_, index) => <button key={index} type="button" className="video-scene" aria-label={`Видео ${index + 1}`} aria-pressed={film === index} onClick={() => setFilm(index)}>0{index + 1}</button>)}</div><button type="button" className="video-control" aria-label={playing ? "Остановить фоновое видео" : "Включить фоновое видео"} onClick={togglePlayback}>{playing ? <Pause size={16} aria-hidden /> : <Play size={16} aria-hidden />}</button></div></figcaption>
-      </figure>
+      </div>
+      <div className="landing-copy">
+        <h1 id="landing-title">Дневник<br />класса</h1>
+        <p className="landing-lead">Баллы и достижения<br />Management Laboratory.</p>
+      </div>
+      <div className="landing-film-controls">
+        <div className="video-scenes" role="group" aria-label="Фоновое видео">{films.map((_, index) => <button key={index} type="button" className="video-scene" aria-label={`Видео ${index + 1}`} aria-pressed={film === index} onClick={() => setFilm(index)}><span aria-hidden />{index === 0 ? "Фильм 1" : "Фильм 2"}</button>)}</div>
+        <button type="button" className="video-control" aria-label={playing ? "Остановить фоновое видео" : "Включить фоновое видео"} onClick={togglePlayback}>{playing ? <Pause size={15} aria-hidden /> : <Play size={15} aria-hidden />}</button>
+      </div>
+      <nav className="entry-list" aria-label="Выберите кабинет">
+        <Link href="/student/" className="entry-link entry-primary"><span className="entry-copy"><strong>Ученику</strong><small>Мои результаты</small></span><span className="entry-arrow"><ArrowRight aria-hidden size={22} /></span></Link>
+        <Link href="/admin/" className="entry-link"><span className="entry-copy"><strong>Администратору</strong><small>Ученики и награды</small></span><span className="entry-arrow"><ArrowRight aria-hidden size={22} /></span></Link>
+      </nav>
     </section>
-    <div className="landing-bottom"><span>Management Laboratory</span><a href="https://davidtsymbalov.github.io/Portfolio.david/" target="_blank" rel="noopener noreferrer">David Tsymbalov ↗</a></div>
+    <div className="landing-bottom"><Link href="/teacher/" className="landing-teacher">Вход преподавателя</Link><a href="https://davidtsymbalov.github.io/Portfolio.david/" target="_blank" rel="noopener noreferrer">David Tsymbalov</a></div>
   </div>;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState, ViewTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2, Users, Gift, ChartNoAxesCombined, Plus, Search, LogOut, ChevronDown, Check, KeyRound, ArrowUpRight, ShieldCheck, Copy, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -97,10 +97,11 @@ export function TeacherPanel({ role = "teacher" }: { role?: "teacher" | "admin" 
 
   function chooseTab(next: Tab) {
     if (busy || adminBusy || (next === "admins" && role !== "teacher")) return;
-    setTab(next);
-    setQuery("");
-    setError(null); setMessage(null);
-    window.scrollTo({ top: 0, behavior: "instant" });
+    startTransition(() => {
+      setTab(next);
+      setQuery("");
+      setError(null); setMessage(null);
+    });
   }
 
   function toggleStudent(id: string) {
@@ -226,19 +227,18 @@ export function TeacherPanel({ role = "teacher" }: { role?: "teacher" | "admin" 
         </div>
       </div>
       <nav aria-label="Разделы кабинета" className="dashboard-nav">{tabs.map(({ id, label, icon: Icon }) => <button key={id} aria-current={tab === id ? "page" : undefined} onClick={() => chooseTab(id)} disabled={busy || adminBusy}>
-        <Icon size={19} />
+        <Icon size={18} aria-hidden="true" />
         <span>{label}</span>{id === "class" && <small>{data.students.length}</small>}</button>)}</nav>
       <button className="quiet-action sidebar-logout" disabled={busy || adminBusy} onClick={async () => { try { await signOutCloud(); router.push(`/${role}/`); } catch (e) { setSyncError(cloudError(e)); } }}>
-        <LogOut size={17} /> Выйти</button>
+        <LogOut size={17} aria-hidden="true" /> Выйти</button>
     </aside>
-    <div key={tab} className="dashboard-content">
+    <ViewTransition key={tab} default="none" enter="workspace-enter" exit="workspace-exit"><div className="dashboard-content">
       <header className="page-heading">
         <div>
-          <p className="eyebrow">{role === "teacher" ? "Кабинет преподавателя" : "Кабинет администратора"}</p>
-          <h1>{tab === "class" ? "Мой класс" : tab === "award" ? "Выдать награду" : tab === "admins" ? "Администраторы" : "Статистика"}<span className="heading-dot">.</span>
+          <h1>{tab === "class" ? "Мой класс" : tab === "award" ? "Награды" : tab === "admins" ? "Администраторы" : "Статистика"}
           </h1>
         </div>{tab === "class" && <button className="action primary" disabled={busy} onClick={() => setShowAdd(!showAdd)} aria-expanded={showAdd} aria-controls="add-students-panel">
-          <Plus size={18} /> Добавить учеников</button>}</header>
+          <Plus size={18} aria-hidden="true" /> Добавить учеников</button>}</header>
       {syncError && <div className="notice danger" role="alert"><span>{syncError} Показаны последние загруженные данные.</span><button className="quiet-action" disabled={busy} onClick={() => setAttempt((value) => value + 1)}><RefreshCw size={14} />Обновить</button></div>}
       {tab === "admins" && role === "teacher" ? <AdministratorsPanel onBusyChange={setAdminBusy} /> : <>
       <div className="workspace-notices" aria-live="polite">{message && <p className="notice success" role="status">
@@ -259,7 +259,7 @@ export function TeacherPanel({ role = "teacher" }: { role?: "teacher" | "admin" 
             </div>
             <div>
               <label htmlFor="new-students">Имена и фамилии</label>
-              <textarea ref={addField} id="new-students" rows={4} value={namesText} onChange={(e) => setNamesText(e.target.value)} placeholder={"Иванов Иван\nПетрова Анна"} />
+              <textarea ref={addField} id="new-students" name="student-names" autoComplete="off" rows={4} value={namesText} onChange={(e) => setNamesText(e.target.value)} placeholder={"Иванов Иван\nПетрова Анна"} />
               <div className="action-row">
                 <button className="action primary" disabled={!namesText.trim()} onClick={addMany}>Создать аккаунты</button>
                 <button className="action secondary" onClick={() => setShowAdd(false)}>Отмена</button>
@@ -279,10 +279,10 @@ export function TeacherPanel({ role = "teacher" }: { role?: "teacher" | "admin" 
             </div>
             <div className="list-toolbar">
               <div className="search-field">
-                <Search size={18} />
-                <input aria-label="Найти ученика" placeholder="Найти по имени или фамилии" value={query} onChange={(e) => setQuery(e.target.value)} />
+              <Search size={18} aria-hidden="true" />
+                <input type="search" name="student-search" autoComplete="off" aria-label="Найти ученика" placeholder="Поиск по имени…" value={query} onChange={(e) => setQuery(e.target.value)} />
               </div>
-              <select aria-label="Сортировка учеников" value={sort} onChange={(e) => setSort(e.target.value)}>
+              <select name="student-sort" aria-label="Сортировка учеников" value={sort} onChange={(e) => startTransition(() => setSort(e.target.value))}>
                 <option value="name">По имени</option>
                 <option value="points">По баллам</option>
               </select>
@@ -293,13 +293,12 @@ export function TeacherPanel({ role = "teacher" }: { role?: "teacher" | "admin" 
               <span>Достижения</span>
               <span>Доступ</span>
             </div>
-            <ul className="student-list">{visible.map((student) => <li key={student.id} className="student-entry">
+            <ul className="student-list">{visible.map((student) => <ViewTransition key={student.id} default="none" update="auto"><li className="student-entry">
               <div className="student-row">
                 <div className="student-identity">
                   <div className="avatar small" aria-hidden="true">{student.name.split(" ").slice(0, 2).map((n) => n[0]).join("")}</div>
                   <div>
                     <strong>{student.name}</strong>
-                    <span className="student-meta">Ученик</span>
                   </div>
                 </div>
                 <span className="points-value">{student.nuts.toLocaleString("ru-RU")}<small>баллы</small>
@@ -314,18 +313,18 @@ export function TeacherPanel({ role = "teacher" }: { role?: "teacher" | "admin" 
                   </summary>
                   <form className="student-settings-body" onSubmit={(event) => { event.preventDefault(); changePassword(student.id); }}>
                     <label htmlFor={`pass-${student.id}`}>Новый пароль</label>
-                    <PasswordInput id={`pass-${student.id}`} maxLength={128} value={passwords[student.id] ?? ""} onChange={(e) => setPasswords((prev) => ({ ...prev, [student.id]: e.target.value }))} placeholder="От 8 символов" autoComplete="new-password" />
+                    <PasswordInput id={`pass-${student.id}`} name="new-password" maxLength={128} value={passwords[student.id] ?? ""} onChange={(e) => setPasswords((prev) => ({ ...prev, [student.id]: e.target.value }))} placeholder="От 8 символов" autoComplete="new-password" />
                     <button type="submit" className="action secondary" disabled={(passwords[student.id] ?? "").length < 8}>Сохранить пароль</button>
                     <button type="button" className="quiet-action danger-text" onClick={() => setConfirmation({ title: "Удалить ученика?", description: `Аккаунт ${student.name}, баллы и достижения будут удалены. Это действие нельзя отменить.`, label: "Удалить ученика", destructive: true, onConfirm: () => deleteStudent(student.id) })}>
                       <Trash2 size={16} />Удалить ученика</button>
                   </form>
                 </details>
               </div>
-            </li>)}</ul>
+            </li></ViewTransition>)}</ul>
             {!visible.length && <div className="empty-state">
               <Users size={32} />
               <h3>{query ? "Ученики не найдены" : "Пока нет учеников"}</h3>
-              {query && <p>Попробуйте другое имя или фамилию.</p>}{!query && <button className="action primary" onClick={() => setShowAdd(true)}>Добавить учеников</button>}</div>}
+              {query ? <button type="button" className="action secondary" onClick={() => setQuery("")}>Сбросить поиск</button> : <button className="action primary" onClick={() => setShowAdd(true)}>Добавить учеников</button>}</div>}
             <div className="list-footer">Показано: {visible.length} из {data.students.length}
             </div>
           </section>
@@ -334,14 +333,13 @@ export function TeacherPanel({ role = "teacher" }: { role?: "teacher" | "admin" 
           <section className="panel">
             <div className="section-heading">
               <div>
-                <p className="eyebrow">Шаг 01</p>
                 <h2>Выберите учеников</h2>
               </div>
               <span className="count-tag">{selectedIds.length} выбрано</span>
             </div>
             <div className="search-field">
-              <Search size={18} />
-              <input aria-label="Поиск получателей" placeholder="Поиск по имени" value={query} onChange={(e) => setQuery(e.target.value)} />
+              <Search size={18} aria-hidden="true" />
+              <input type="search" name="recipient-search" autoComplete="off" aria-label="Поиск получателей" placeholder="Поиск по имени…" value={query} onChange={(e) => setQuery(e.target.value)} />
             </div>
             <div className="selection-tools">
               <button className="quiet-action" disabled={!visible.length} onClick={() => { const next = Array.from(new Set([...selectedIds, ...visible.map((s) => s.id)])); if (next.length > 100) { setError("За один раз можно выбрать до 100 учеников. Уточните поиск."); return; } setSelectedIds(next); }}>Выбрать найденных</button>
@@ -355,11 +353,9 @@ export function TeacherPanel({ role = "teacher" }: { role?: "teacher" | "admin" 
           </section>
           <div className="award-actions">
             <section className="panel">
-              <p className="eyebrow">Шаг 02</p>
               <h2>Баллы</h2>
-              <p className="muted">Баллы получит каждый выбранный ученик.</p>
-              <Label htmlFor="nuts">Количество баллов</Label>
-              <Input id="nuts" type="number" step="1" min={-1000000} max={1000000} value={nutsAmount} onChange={(e) => setNutsAmount(e.target.value)} />
+              <Label htmlFor="nuts">Баллов каждому</Label>
+              <Input id="nuts" name="points" type="number" step="1" min={-1000000} max={1000000} value={nutsAmount} onChange={(e) => setNutsAmount(e.target.value)} />
               <div className="quick-amounts">{[1, 5, 10, 25].map((n) => <button className="action secondary" key={n} aria-pressed={nutsAmount === String(n)} onClick={() => setNutsAmount(String(n))}>+{n}</button>)}</div>
               <button className="action primary full-width" disabled={!selectedIds.length || !Number.isInteger(Number(nutsAmount)) || Number(nutsAmount) === 0 || Math.abs(Number(nutsAmount)) > 1000000} onClick={awardNuts}>{Number(nutsAmount) < 0 ? "Списать баллы" : "Выдать баллы"} · {selectedIds.length} чел.</button>
               <p className="field-hint">Отрицательное число уменьшит баланс.</p>
@@ -367,9 +363,9 @@ export function TeacherPanel({ role = "teacher" }: { role?: "teacher" | "admin" 
             <section className="panel">
               <h2>Достижение</h2>
               <Label htmlFor="ach">Название достижения</Label>
-              <Input id="ach" maxLength={300} value={achTitle} onChange={(e) => setAchTitle(e.target.value)} placeholder="Например, отличная командная работа" />
+              <Input id="ach" name="achievement" autoComplete="off" maxLength={300} value={achTitle} onChange={(e) => setAchTitle(e.target.value)} placeholder="Например, отличная командная работа" />
               <button className="action secondary full-width" disabled={!selectedIds.length || !achTitle.trim()} onClick={awardAch}>
-                <Gift size={17} />Выдать достижение</button>
+                <Gift size={17} aria-hidden="true" />Выдать достижение</button>
             </section>
           </div>
         </div>}
@@ -389,6 +385,6 @@ export function TeacherPanel({ role = "teacher" }: { role?: "teacher" | "admin" 
             </li>)}</ol>{!ranked.length && <p className="muted">Пока нет учеников.</p>}</section></>}
       </fieldset>
       </>}
-    </div>
+    </div></ViewTransition>
   </div><ConfirmAction confirmation={confirmation} onCancel={() => setConfirmation(null)} /></>;
 }

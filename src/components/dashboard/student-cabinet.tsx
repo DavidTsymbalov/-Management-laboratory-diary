@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Asterisk, Award, LogOut, Plus, RefreshCw, Zap } from "lucide-react";
+import { Asterisk, Award, LogOut, Plus, RefreshCw, Zap, TrendingUp, Medal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { AchievementIcon } from "@/data/seed";
 import type { AppData } from "@/lib/store";
@@ -122,7 +122,7 @@ export function StudentCabinet() {
     if (error) {
       return (
         <section className="student-error" aria-labelledby="student-error-heading">
-          <p className="eyebrow">Кабинет ученика</p>
+          <p className="eyebrow">Мой дневник</p>
           <h1 id="student-error-heading">Дневник пока недоступен</h1>
           <p role="alert">{error}</p>
           <div className="student-error-actions">
@@ -148,7 +148,7 @@ export function StudentCabinet() {
     <div className="student-workspace">
       <header className="student-heading page-heading">
         <div className="student-heading-copy">
-          <p className="eyebrow">Кабинет ученика</p>
+          <p className="eyebrow">Мой дневник</p>
           <h1>{me.name}</h1>
         </div>
         <button
@@ -171,20 +171,20 @@ export function StudentCabinet() {
 
       <dl className="student-summary" aria-label="Твои результаты">
         <div className="student-summary-item student-balance">
-          <dt className="student-metric-label">Баллы</dt>
+          <dt className="student-metric-label">Мои баллы</dt>
           <dd className="student-metric-value">
             {me.nuts.toLocaleString("ru-RU")}
           </dd>
         </div>
         <div className="student-summary-item">
-          <dt className="student-metric-label">Место в классе</dt>
+          <dt className="student-metric-label"><TrendingUp size={18} aria-hidden="true" />Место в классе</dt>
           <dd className="student-metric-value">
             {standing ? <>{standing.rank}<span> из {standing.total}</span></> : "—"}
           </dd>
           {rankError && <dd className="student-metric-note">Рейтинг недоступен. Попробуй обновить.</dd>}
         </div>
         <div className="student-summary-item">
-          <dt className="student-metric-label">Достижения</dt>
+          <dt className="student-metric-label"><Medal size={18} aria-hidden="true" />Достижения</dt>
           <dd className="student-metric-value">{achievements.length.toLocaleString("ru-RU")}</dd>
           {achievements.length > 0 && <dd className="student-metric-note">Последнее — {formatDate(achievements[0].earnedAt)}</dd>}
         </div>
