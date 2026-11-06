@@ -69,25 +69,32 @@ function queryClient(as) {
           limit = `limit ${Number(value)}`;
           return chain;
         },
-        async maybeSingle() {
+        async execute() {
           try {
             const rows = await as(
               bob,
               `select ${fields} from ${table} where ${where.join(" and ")} ${order} ${limit}`,
               args,
             );
-            assert.ok(rows.length <= 1);
-            return { data: rows[0] ?? null, error: null };
+            return { data: rows, error: null };
           } catch (error) {
             return { data: null, error };
           }
+        },
+        async maybeSingle() {
+          const result = await chain.execute();
+          assert.ok(!result.data || result.data.length <= 1);
+          return { ...result, data: result.data?.[0] ?? null };
+        },
+        then(resolve, reject) {
+          return chain.execute().then(resolve, reject);
         },
       };
       return chain;
     },
   };
 }
-test("opening finds an unread emoji beyond forty newer texts, ignores own/future/other-peer messages, and respects the server read cursor", async () => {
+test("opening loads all 22 unread emoji beyond forty newer texts and respects partial read progress", async () => {
   const { db, as, migrate } = await setup();
   try {
     await migrate();
@@ -103,7 +110,9 @@ test("opening finds an unread emoji beyond forty newer texts, ignores own/future
       ).rows[0].id;
     }
     const read = await insert(alice, bob, "❤️");
-    const unread = await insert(alice, bob, "💩");
+    const unread = [];
+    for (let index = 0; index < 22; index++)
+      unread.push(await insert(alice, bob, index % 2 ? "❤️" : "💩"));
     for (let index = 0; index < 45; index++)
       await insert(alice, bob, null, `Текст ${index}`);
     const visibleThrough = await insert(bob, alice, "🔥");
@@ -112,29 +121,62 @@ test("opening finds an unread emoji beyond forty newer texts, ignores own/future
     await as(bob, "select mark_student_emoji_read($1,$2)", [alice, read]);
     const reactions = sourceModule("../src/lib/emoji-reactions.ts");
     const client = queryClient(as);
-    const { loadUnreadReaction } = sourceModule("../src/lib/emoji-chat.ts", {
+    const { loadUnreadReactions } = sourceModule("../src/lib/emoji-chat.ts", {
       "@/lib/supabase": { getSupabase: () => client },
       "@/lib/emoji-reactions": reactions,
     });
-    let reaction = await loadUnreadReaction(alice, bob, Number(visibleThrough));
-    assert.equal(reaction.id, Number(unread));
-    assert.equal(reaction.emoji, "💩");
+    let reactionsFound = await loadUnreadReactions(
+      alice,
+      bob,
+      Number(visibleThrough),
+    );
+    assert.deepEqual(
+      Array.from(reactionsFound, (r) => r.id),
+      unread.map(Number),
+    );
+    await as(bob, "select mark_student_emoji_read($1,$2)", [alice, unread[6]]);
+    reactionsFound = await loadUnreadReactions(
+      alice,
+      bob,
+      Number(visibleThrough),
+    );
+    assert.deepEqual(
+      Array.from(reactionsFound, (r) => r.id),
+      unread.slice(7).map(Number),
+    );
     await as(bob, "select mark_student_emoji_read($1,$2)", [
       alice,
       visibleThrough,
     ]);
     assert.equal(
-      await loadUnreadReaction(alice, bob, Number(visibleThrough)),
-      null,
+      (await loadUnreadReactions(alice, bob, Number(visibleThrough))).length,
+      0,
     );
-    reaction = await loadUnreadReaction(alice, bob, Number(future));
-    assert.equal(reaction.id, Number(future));
+    reactionsFound = await loadUnreadReactions(alice, bob, Number(future));
+    assert.equal(reactionsFound.length, 1);
+    assert.equal(reactionsFound[0].id, Number(future));
     await as(bob, "select mark_student_emoji_read($1,$2)", [alice, future]);
-    assert.equal(await loadUnreadReaction(alice, bob, Number(future)), null);
     assert.equal(
-      await loadUnreadReaction(alice, outsider, Number(future)),
-      null,
+      (await loadUnreadReactions(alice, bob, Number(future))).length,
+      0,
+    );
+    assert.equal(
+      (await loadUnreadReactions(alice, outsider, Number(future))).length,
+      0,
       "Bob cannot query Alice's conversation with another pupil",
+    );
+    const paginated = [];
+    for (let index = 0; index < 211; index++)
+      paginated.push(await insert(alice, bob, "👏"));
+    reactionsFound = await loadUnreadReactions(
+      alice,
+      bob,
+      Number(paginated.at(-1)),
+    );
+    assert.deepEqual(
+      Array.from(reactionsFound, (r) => r.id),
+      paginated.map(Number),
+      "unread effects are not truncated at one database page",
     );
   } finally {
     await db.close();

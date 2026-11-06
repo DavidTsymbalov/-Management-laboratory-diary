@@ -27,7 +27,7 @@ import {
 import {
   blockEmojiPeer,
   loadEmojiThread,
-  loadUnreadReaction,
+  loadUnreadReactions,
   markEmojiRead,
   sendEmoji,
   sendTextMessage,
@@ -65,6 +65,21 @@ function narrowSnapshot() {
 }
 function narrowSubscribe(callback: () => void) {
   const media = window.matchMedia("(max-width: 700px)");
+  media.addEventListener("change", callback);
+  return () => media.removeEventListener("change", callback);
+}
+function visibilitySnapshot() {
+  return !document.hidden;
+}
+function visibilitySubscribe(callback: () => void) {
+  document.addEventListener("visibilitychange", callback);
+  return () => document.removeEventListener("visibilitychange", callback);
+}
+function motionSnapshot() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+function motionSubscribe(callback: () => void) {
+  const media = window.matchMedia("(prefers-reduced-motion: reduce)");
   media.addEventListener("change", callback);
   return () => media.removeEventListener("change", callback);
 }
@@ -128,7 +143,10 @@ export function StudentChats({
   const [pending, setPending] = useState<PendingSend | null>(null);
   const [sending, setSending] = useState(false);
   const [blocking, setBlocking] = useState(false);
-  const [burst, setBurst] = useState<EmojiBurstEvent | null>(null);
+  const [burst, setBurst] = useState<
+    (EmojiBurstEvent & { peer: string; message: ReceivedReaction }) | null
+  >(null);
+  const [playbackVersion, setPlaybackVersion] = useState(0);
   const [notice, setNotice] = useState<{
     peer: string;
     name: string;
@@ -166,44 +184,27 @@ export function StudentChats({
     };
   }, []);
   useEffect(() => {
-    if (!burst) return;
-    const timer = setTimeout(() => setBurst(null), EMOJI_BURST_LIFETIME_MS);
-    return () => clearTimeout(timer);
-  }, [burst]);
-  useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(null), 5500);
     return () => clearTimeout(timer);
   }, [notice]);
-  const react = useCallback(
-    (emoji: ReactionEmoji, point?: { x: number; y: number }) => {
-      if (document.hidden) return false;
-      if (
-        !preferences.effects ||
-        matchMedia("(prefers-reduced-motion: reduce)").matches
-      )
-        return false;
-      setBurst({
-        id: crypto.randomUUID(),
-        emoji,
-        x: point?.x ?? window.innerWidth / 2,
-        y: point?.y ?? window.innerHeight * 0.6,
-        width: window.innerWidth,
-        height: window.innerHeight,
-      });
-      return true;
-    },
-    [preferences],
-  );
   const playback = useRef(new ReceivedEmojiPlayback());
-  const received = useCallback(
-    (message: ReceivedReaction | null) => playback.current.play(message, react),
-    [react],
+  const acknowledged = useRef(new Map<string, number>());
+  const visible = useSyncExternalStore(
+    visibilitySubscribe,
+    visibilitySnapshot,
+    serverNarrow,
   );
-  const receivedRef = useRef(received);
-  useEffect(() => {
-    receivedRef.current = received;
-  }, [received]);
+  const reducedMotion = useSyncExternalStore(
+    motionSubscribe,
+    motionSnapshot,
+    serverNarrow,
+  );
+  const animationsEnabled = preferences.effects && !reducedMotion;
+  const wakePlayback = useCallback(
+    () => setPlaybackVersion((version) => version + 1),
+    [],
+  );
   const incoming = useCallback(
     (messages: EmojiMessage[], peers: EmojiPeer[]) => {
       const allowed = messages.filter(
@@ -224,10 +225,10 @@ export function StudentChats({
           (message) => message.sender_id === peerId,
         );
         if (!playback.current.buffer(peerId, forPeer)) {
-          received(forPeer.filter((message) => message.emoji).at(-1) ?? null);
+          playback.current.enqueue(peerId, forPeer);
           const latest = forPeer.at(-1);
-          if (latest)
-            void markEmojiRead(peerId, latest.id).catch(() => undefined);
+          if (latest) playback.current.observe(peerId, latest.id);
+          wakePlayback();
         }
       }
       const last = allowed.at(-1);
@@ -241,7 +242,7 @@ export function StudentChats({
           body: last.body,
         });
     },
-    [active, peerId, received],
+    [active, peerId, wakePlayback],
   );
   const { peers, setPeers, ready, error, refresh } = useEmojiInbox(
     studentId,
@@ -249,6 +250,92 @@ export function StudentChats({
   );
   const selected = peers.find((peer) => peer.id === peerId) ?? null;
   const selectedBlocked = selected?.blocked ?? false;
+  useEffect(() => {
+    if (!active || !peerId || !visible || selectedBlocked) return;
+    const player = playback.current;
+    if (player.isOpening(peerId)) return;
+    const timer = setTimeout(() => {
+      if (!animationsEnabled) {
+        if (!player.next(peerId) && !burst) return;
+        player.skip(peerId);
+        setBurst(null);
+        wakePlayback();
+        return;
+      }
+      if (burst) return;
+      const message = player.next(peerId);
+      if (!message?.emoji) return;
+      setBurst({
+        id: crypto.randomUUID(),
+        peer: peerId,
+        message,
+        emoji: message.emoji,
+        x: message.point?.x ?? window.innerWidth / 2,
+        y: message.point?.y ?? window.innerHeight * 0.6,
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [
+    active,
+    peerId,
+    visible,
+    selectedBlocked,
+    animationsEnabled,
+    burst,
+    playbackVersion,
+    wakePlayback,
+  ]);
+  useEffect(() => {
+    if (!burst) return;
+    const player = playback.current;
+    const playing =
+      active &&
+      peerId === burst.peer &&
+      visible &&
+      !selectedBlocked &&
+      animationsEnabled;
+    const timer = setTimeout(
+      () => {
+        if (playing && !document.hidden)
+          player.complete(burst.peer, burst.message.id);
+        setBurst(null);
+        wakePlayback();
+      },
+      playing ? EMOJI_BURST_LIFETIME_MS : 0,
+    );
+    return () => clearTimeout(timer);
+  }, [
+    burst,
+    active,
+    peerId,
+    visible,
+    selectedBlocked,
+    animationsEnabled,
+    wakePlayback,
+  ]);
+  useEffect(() => {
+    if (!active || !peerId || !visible || selectedBlocked) return;
+    const through = playback.current.readableThrough(peerId);
+    if (!through || through <= (acknowledged.current.get(peerId) ?? 0)) return;
+    let keep = true;
+    void markEmojiRead(peerId, through)
+      .then(() => {
+        acknowledged.current.set(
+          peerId,
+          Math.max(acknowledged.current.get(peerId) ?? 0, through),
+        );
+        if (keep) void refresh();
+      })
+      .catch(() => {
+        /* The next completion or reopening retries the read position. */
+      });
+    return () => {
+      keep = false;
+    };
+  }, [active, peerId, visible, selectedBlocked, playbackVersion, refresh]);
+
   const messages = peerId ? (threads[peerId] ?? []) : [];
   const draft = peerId ? (drafts[peerId] ?? "") : "";
   useLayoutEffect(() => {
@@ -328,29 +415,14 @@ export function StudentChats({
           [target]: loaded.length === 40,
         }));
         const last = loaded.at(-1);
-        const unreadReaction =
+        const unreadReactions =
           last && !selectedBlocked
-            ? await loadUnreadReaction(target, studentId, last.id)
-            : null;
+            ? await loadUnreadReactions(target, studentId, last.id)
+            : [];
         if (!keep || document.hidden) return;
-        const queued = player.finish(target, unreadReaction);
-        if (!selectedBlocked) receivedRef.current(queued.reaction);
-        const through = Math.max(last?.id ?? 0, queued.through);
-        if (through) {
-          await markEmojiRead(target, through);
-          if (keep) {
-            // Preserve unread messages that arrived after this read request began.
-            setPeers((current) =>
-              current.map((peer) =>
-                peer.id === target &&
-                Number(peer.last_message_id ?? 0) <= through
-                  ? { ...peer, unread: 0 }
-                  : peer,
-              ),
-            );
-            void refresh();
-          }
-        }
+        player.observe(target, last?.id ?? 0);
+        player.finish(target, unreadReactions);
+        wakePlayback();
       })
       .catch((reason) => {
         if (keep) {
@@ -378,6 +450,7 @@ export function StudentChats({
     setPeers,
     refresh,
     selectedBlocked,
+    wakePlayback,
   ]);
   useLayoutEffect(() => {
     const anchor = loadingOlder.current;
@@ -468,8 +541,10 @@ export function StudentChats({
       }));
       setPending(null);
       nearBottom.current = true;
-      if (emoji) react(emoji, point);
-      else if (originalDraft.trim() === body)
+      if (emoji) {
+        playback.current.enqueue(target, [{ ...sent, point }]);
+        wakePlayback();
+      } else if (originalDraft.trim() === body)
         setDrafts((current) =>
           current[target] === originalDraft
             ? { ...current, [target]: "" }
@@ -919,7 +994,12 @@ export function StudentChats({
           </div>
         )}
       </section>
-      {burst && <EmojiBurst key={burst.id} event={burst} />}
+      {burst &&
+        active &&
+        peerId === burst.peer &&
+        visible &&
+        animationsEnabled &&
+        !selectedBlocked && <EmojiBurst key={burst.id} event={burst} />}
       {notice && (
         <div className="emoji-notification" role="status">
           <button type="button" onClick={() => openPeer(notice.peer)}>

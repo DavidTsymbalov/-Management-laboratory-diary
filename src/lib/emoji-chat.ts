@@ -71,7 +71,7 @@ export async function sendTextMessage(
     throw new Error("Отправка не подтверждена. Повторите попытку.");
   return { ...item, id: Number(item.id) };
 }
-export async function loadUnreadReaction(
+export async function loadUnreadReactions(
   peer: string,
   studentId: string,
   through: number,
@@ -84,22 +84,37 @@ export async function loadUnreadReaction(
     .eq("peer_id", peer)
     .maybeSingle();
   if (readError) throw readError;
-  if (Number(position?.through_id ?? 0) >= through) return null;
-  const { data, error } = await client
-    .from("student_emoji_messages")
-    .select("id,sender_id,emoji")
-    .eq("sender_id", peer)
-    .eq("recipient_id", studentId)
-    .gt("id", position?.through_id ?? 0)
-    .lte("id", through)
-    .not("emoji", "is", null)
-    .order("id", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error) throw error;
-  return data?.emoji && isReactionEmoji(data.emoji)
-    ? { ...data, id: Number(data.id), emoji: data.emoji }
-    : null;
+  let after = Number(position?.through_id ?? 0);
+  const reactions: Pick<EmojiMessage, "id" | "sender_id" | "emoji">[] = [];
+  while (after < through) {
+    const { data, error } = await client
+      .from("student_emoji_messages")
+      .select("id,sender_id,emoji")
+      .eq("sender_id", peer)
+      .eq("recipient_id", studentId)
+      .gt("id", after)
+      .lte("id", through)
+      .not("emoji", "is", null)
+      .order("id", { ascending: true })
+      .limit(200);
+    if (error) throw error;
+    const page = data ?? [];
+    for (const message of page)
+      if (isReactionEmoji(message.emoji))
+        reactions.push({
+          ...message,
+          id: Number(message.id),
+          emoji: message.emoji,
+        });
+    if (page.length < 200) break;
+    const next = Number(page.at(-1)?.id);
+    if (!Number.isFinite(next) || next <= after)
+      throw new Error(
+        "Не удалось загрузить непрочитанные эмодзи. Повторите попытку.",
+      );
+    after = next;
+  }
+  return reactions;
 }
 export async function markEmojiRead(peer: string, through: number) {
   const { error } = await getSupabase().rpc("mark_student_emoji_read", {

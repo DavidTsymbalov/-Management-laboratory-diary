@@ -18,8 +18,10 @@ The playful moment is the received emoji: 48 large copies spread across the whol
 viewport over about four seconds. Effects use a body portal and never intercept touch or focus.
 No background confetti, page shaking, floating decorative icons or timed onboarding.
 Animation and chat blocking remain directly controllable by the recipient. Audio is removed.
-An unopened conversation retains unread reactions. Opening it plays the latest unread
-emoji once, including when it was received before login. Live reactions play only in
+An unopened conversation retains unread reactions. Opening it queues every unread
+emoji in chronological order, one complete four-second effect per message. A reaction
+is marked read only after its effect finishes. Navigation or a hidden tab pauses the
+queue; unplayed messages remain unread across reloads. Live reactions play only in
 the selected visible conversation. Read history does not replay.
 
 Motion map:

@@ -98,63 +98,84 @@ test("large, slow emoji reach all screen regions on phone, landscape and desktop
   }
   assert.ok(EMOJI_BURST_DURATION_MS >= 3500);
 });
-test("opening a conversation replays an unread reaction and absorbs arrivals during history fetch once", () => {
+test("22 unread emoji produce 22 ordered animations, each completion advances only its own read boundary", () => {
   const player = new ReceivedEmojiPlayback();
-  const shown = [];
-  const show = (emoji) => {
-    shown.push(emoji);
-    return true;
-  };
-  player.begin("anna");
-  assert.equal(
-    player.buffer("anna", [
-      { id: 20, sender_id: "anna", emoji: "💩" },
-      { id: 21, sender_id: "anna", emoji: null, body: "Текст после эмодзи" },
-    ]),
-    true,
-  );
-  assert.equal(
-    player.buffer("bob", [{ id: 22, sender_id: "bob", emoji: "🔥" }]),
-    false,
-  );
-  const completed = player.finish("anna", {
-    id: 10,
+  const unread = Array.from({ length: 22 }, (_, i) => ({
+    id: i + 1,
     sender_id: "anna",
-    emoji: "❤️",
-  });
-  assert.equal(completed.reaction.id, 20);
-  assert.equal(completed.through, 21);
-  assert.equal(player.play(completed.reaction, show), true);
-  assert.equal(player.play(completed.reaction, show), false);
+    emoji: i % 2 ? "❤️" : "💩",
+  }));
+  player.begin("anna");
+  player.observe("anna", 24);
+  player.buffer("anna", [
+    { id: 23, sender_id: "anna", emoji: "🔥" },
+    { id: 24, sender_id: "anna", emoji: null },
+  ]);
   assert.equal(
-    player.play({ id: 10, sender_id: "anna", emoji: "❤️" }, show),
-    false,
+    player.next("anna"),
+    null,
+    "wait for history before starting live arrivals",
+  );
+  assert.equal(player.readableThrough("anna"), 0);
+  player.finish("anna", unread);
+  const played = [];
+  for (let id = 1; id <= 23; id++) {
+    const next = player.next("anna");
+    assert.equal(next.id, id);
+    played.push(next.id);
+    assert.equal(
+      player.readableThrough("anna"),
+      id - 1,
+      "queued emoji remain unread",
+    );
+    player.complete("anna", next.id);
+  }
+  assert.equal(
+    played.length,
+    23,
+    "all 22 historical emoji and the new arrival have individual effects",
   );
   assert.equal(
-    player.play({ id: 22, sender_id: "bob", emoji: "🔥" }, show),
-    true,
+    player.readableThrough("anna"),
+    24,
+    "trailing text is marked after the last effect",
   );
-  assert.deepEqual(shown, ["💩", "🔥"]);
-  assert.equal(player.buffer("anna", []), false);
+  assert.equal(player.next("anna"), null);
+  player.enqueue("anna", unread);
+  assert.equal(
+    player.next("anna"),
+    null,
+    "history/live overlap cannot duplicate completed effects",
+  );
 });
-test("history replay skips read/text messages, cancellation and disabled effects consume no reaction", () => {
+test("leaving a conversation preserves its pending animations; new arrivals append without replacing current emoji", () => {
   const player = new ReceivedEmojiPlayback();
   player.begin("anna");
-  player.buffer("anna", [{ id: 2, sender_id: "anna", emoji: "💩" }]);
-  player.cancel("anna");
-  assert.equal(player.finish("anna", null).reaction, null);
+  player.observe("anna", 3);
+  player.finish("anna", [
+    { id: 1, sender_id: "anna", emoji: "💩" },
+    { id: 2, sender_id: "anna", emoji: "❤️" },
+  ]);
+  player.complete("anna", 1);
+  player.begin("bob");
+  player.observe("bob", 4);
+  player.finish("bob", [{ id: 4, sender_id: "bob", emoji: "⚡" }]);
+  assert.equal(player.next("anna").id, 2);
+  assert.equal(player.readableThrough("anna"), 1);
+  player.enqueue("anna", [
+    { id: 3, sender_id: "anna", emoji: "🔥" },
+    { id: 2, sender_id: "anna", emoji: "❤️" },
+  ]);
+  assert.equal(player.next("anna").id, 2);
   player.begin("anna");
-  player.buffer("anna", [{ id: 3, sender_id: "anna", emoji: null }]);
-  assert.equal(player.finish("anna", null).reaction, null);
-  const unread = { id: 4, sender_id: "anna", emoji: "❤️" };
-  assert.equal(
-    player.play(unread, () => false),
-    false,
-  );
-  assert.equal(
-    player.play(unread, () => true),
-    true,
-  );
-  player.begin("anna");
-  assert.equal(player.finish("anna", null).reaction, null);
+  player.finish("anna", [
+    { id: 2, sender_id: "anna", emoji: "❤️" },
+    { id: 3, sender_id: "anna", emoji: "🔥" },
+  ]);
+  player.complete("anna", 2);
+  assert.equal(player.next("anna").id, 3);
+  assert.equal(player.next("bob").id, 4);
+  player.skip("anna");
+  assert.equal(player.next("anna"), null);
+  assert.equal(player.readableThrough("anna"), 3);
 });
