@@ -6,7 +6,7 @@ import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/cn";
 
 export function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, changing } = useTheme();
   const pathname = usePathname();
   const onHome = pathname === "/";
   const isDark = theme === "dark";
@@ -15,6 +15,8 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={toggleTheme}
+      disabled={changing}
+      aria-busy={changing}
       className={cn(
         "inline-flex h-11 w-11 items-center justify-center transition",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40",

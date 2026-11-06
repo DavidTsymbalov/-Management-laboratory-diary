@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  startTransition,
+  ViewTransition,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -178,11 +185,13 @@ export function TeacherPanel({
   }
   function choose(next: Tab) {
     if (busy) return;
-    setTab(next);
-    setQuery("");
-    setFeedback(null);
-    setShowAdd(false);
-    setAdminEditor(null);
+    startTransition(() => {
+      setTab(next);
+      setQuery("");
+      setFeedback(null);
+      setShowAdd(false);
+      setAdminEditor(null);
+    });
   }
   async function run(action: () => Promise<string>): Promise<boolean> {
     if (locked.current) return false;
@@ -488,257 +497,114 @@ export function TeacherPanel({
               </dl>
             </section>
           )}
-          <fieldset className="teacher-fields" disabled={busy} aria-busy={busy}>
-            {credentials.length > 0 && (
-              <section className="teacher-credentials">
-                <div className="teacher-section-heading">
-                  <h3>Данные новых учеников</h3>
-                  <button
-                    type="button"
-                    className="teacher-button subtle"
-                    onClick={() => setCredentials([])}
-                  >
-                    <X size={16} aria-hidden="true" />
-                    Скрыть
-                  </button>
-                </div>
-                <textarea
-                  readOnly
-                  rows={Math.min(6, credentials.length + 1)}
-                  aria-label="Логины и пароли новых учеников"
-                  value={credentials
-                    .map((row) => `${row.name} | ${row.password}`)
-                    .join("\n")}
-                />
-                <div className="teacher-inline-actions">
-                  <p className="teacher-hint">
-                    Передайте каждому только его логин и пароль.
-                  </p>
-                  <button
-                    type="button"
-                    className="teacher-button"
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText(
-                          credentials
-                            .map((row) => `${row.name} | ${row.password}`)
-                            .join("\n"),
-                        );
-                        setFeedback({
-                          type: "success",
-                          message: "Данные скопированы.",
-                        });
-                      } catch {
-                        fail("Выделите данные в поле и скопируйте вручную.");
-                      }
-                    }}
-                  >
-                    <Copy size={16} aria-hidden="true" />
-                    Скопировать
-                  </button>
-                </div>
-              </section>
-            )}
-            {tab === "overview" && (
-              <>
-                <StatsGrid stats={stats} />
-                <div className="teacher-overview-grid">
-                  <section className="teacher-section">
-                    <div className="teacher-section-heading">
-                      <h2>Участие класса</h2>
-                      <button
-                        type="button"
-                        className="teacher-button subtle"
-                        onClick={() => choose("students")}
-                      >
-                        К ученикам
-                      </button>
-                    </div>
-                    <dl className="teacher-facts">
-                      <div>
-                        <dt>С положительным балансом</dt>
-                        <dd>
-                          {stats.withPoints} из {stats.totalStudents}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>С наградами</dt>
-                        <dd>
-                          {stats.withAchievements} из {stats.totalStudents}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Охват наградами</dt>
-                        <dd>{stats.achievementCoverage}%</dd>
-                      </div>
-                      <div>
-                        <dt>Без наград</dt>
-                        <dd>{stats.totalStudents - stats.withAchievements}</dd>
-                      </div>
-                      <div>
-                        <dt>Новых за 7 дней</dt>
-                        <dd>{stats.newThisWeek}</dd>
-                      </div>
-                    </dl>
-                  </section>
-                  <section className="teacher-section">
-                    <div className="teacher-section-heading">
-                      <h2>Баланс класса</h2>
-                      <button
-                        type="button"
-                        className="teacher-button subtle"
-                        onClick={() => choose("awards")}
-                      >
-                        Выдать награду
-                      </button>
-                    </div>
-                    <dl className="teacher-facts">
-                      <div>
-                        <dt>Медиана</dt>
-                        <dd>{number(stats.medianNuts)}</dd>
-                      </div>
-                      <div>
-                        <dt>Наибольший баланс</dt>
-                        <dd>{number(stats.maximumNuts)}</dd>
-                      </div>
-                      <div>
-                        <dt>Наименьший баланс</dt>
-                        <dd>{number(stats.minimumNuts)}</dd>
-                      </div>
-                      <div>
-                        <dt>Наград за 7 дней</dt>
-                        <dd>{stats.awardsThisWeek}</dd>
-                      </div>
-                    </dl>
-                  </section>
-                </div>
-                <TeacherCharts students={data.students} />
-                <div className="teacher-overview-grid">
-                  <section className="teacher-section">
-                    <div className="teacher-section-heading">
-                      <h2>Рейтинг</h2>
-                      <span>Первые пять</span>
-                    </div>
-                    <ol className="teacher-ranking">
-                      {ranked.slice(0, 5).map((student, index) => (
-                        <li key={student.id}>
-                          <span>{index + 1}</span>
-                          <strong>{student.name}</strong>
-                          <span>{number(student.nuts)} б.</span>
-                        </li>
-                      ))}
-                    </ol>
-                    {!ranked.length && (
-                      <p className="teacher-empty">
-                        Добавьте учеников, чтобы увидеть рейтинг.
-                      </p>
-                    )}
-                  </section>
-                  <section className="teacher-section">
-                    <div className="teacher-section-heading">
-                      <h2>Последние награды</h2>
-                    </div>
-                    <ul className="teacher-recent-awards">
-                      {recent.map((award) => (
-                        <li key={award.id}>
-                          <Award size={17} aria-hidden="true" />
-                          <div>
-                            <strong>{award.title}</strong>
-                            <p>{award.name}</p>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                    {!recent.length && (
-                      <p className="teacher-empty">
-                        Награды пока не выдавались.
-                      </p>
-                    )}
-                  </section>
-                </div>
-              </>
-            )}
-            {tab === "students" && (
-              <>
-                {showAdd && (
-                  <form
-                    noValidate
-                    className="teacher-add-form"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      void addStudents();
-                    }}
-                  >
-                    <div>
-                      <h3>Новые ученики</h3>
-                      <p className="teacher-hint">
-                        Каждое имя с новой строки. Пароль создадим
-                        автоматически. Свой можно задать так: Имя Фамилия |
-                        пароль.
-                      </p>
-                    </div>
-                    <div className="teacher-field">
-                      <label htmlFor="new-students">Имена и фамилии</label>
-                      <textarea
-                        ref={addField}
-                        id="new-students"
-                        name="student-names"
-                        rows={4}
-                        autoComplete="off"
-                        value={namesText}
-                        onChange={(event) => setNamesText(event.target.value)}
-                        placeholder={"Иванов Иван\nПетрова Анна"}
-                      />
-                      <div className="teacher-inline-actions">
-                        <button
-                          type="submit"
-                          className="teacher-button primary"
-                        >
-                          Создать аккаунты
-                        </button>
+          <ViewTransition
+            key={tab}
+            default="none"
+            enter="workspace-tab-in"
+            exit="workspace-tab-out"
+          >
+            <fieldset
+              className="teacher-fields"
+              disabled={busy}
+              aria-busy={busy}
+            >
+              {credentials.length > 0 && (
+                <section className="teacher-credentials">
+                  <div className="teacher-section-heading">
+                    <h3>Данные новых учеников</h3>
+                    <button
+                      type="button"
+                      className="teacher-button subtle"
+                      onClick={() => setCredentials([])}
+                    >
+                      <X size={16} aria-hidden="true" />
+                      Скрыть
+                    </button>
+                  </div>
+                  <textarea
+                    readOnly
+                    rows={Math.min(6, credentials.length + 1)}
+                    aria-label="Логины и пароли новых учеников"
+                    value={credentials
+                      .map((row) => `${row.name} | ${row.password}`)
+                      .join("\n")}
+                  />
+                  <div className="teacher-inline-actions">
+                    <p className="teacher-hint">
+                      Передайте каждому только его логин и пароль.
+                    </p>
+                    <button
+                      type="button"
+                      className="teacher-button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(
+                            credentials
+                              .map((row) => `${row.name} | ${row.password}`)
+                              .join("\n"),
+                          );
+                          setFeedback({
+                            type: "success",
+                            message: "Данные скопированы.",
+                          });
+                        } catch {
+                          fail("Выделите данные в поле и скопируйте вручную.");
+                        }
+                      }}
+                    >
+                      <Copy size={16} aria-hidden="true" />
+                      Скопировать
+                    </button>
+                  </div>
+                </section>
+              )}
+              {tab === "overview" && (
+                <>
+                  <StatsGrid stats={stats} />
+                  <div className="teacher-overview-grid">
+                    <section className="teacher-section">
+                      <div className="teacher-section-heading">
+                        <h2>Участие класса</h2>
                         <button
                           type="button"
                           className="teacher-button subtle"
-                          onClick={() => setShowAdd(false)}
+                          onClick={() => choose("students")}
                         >
-                          Отмена
+                          К ученикам
                         </button>
                       </div>
-                    </div>
-                  </form>
-                )}
-                <section className="teacher-section teacher-class">
-                  <div className="teacher-list-toolbar">
-                    <div className="teacher-search">
-                      <Search size={18} aria-hidden="true" />
-                      <input
-                        name="student-search"
-                        type="search"
-                        autoComplete="off"
-                        value={query}
-                        aria-label="Поиск ученика"
-                        placeholder="Поиск по имени…"
-                        onChange={(event) => setQuery(event.target.value)}
-                      />
-                    </div>
-                    <select
-                      aria-label="Сортировка учеников"
-                      name="student-sort"
-                      value={sort}
-                      onChange={(event) => setSort(event.target.value)}
-                    >
-                      <option value="name">По имени</option>
-                      <option value="points">По баллам</option>
-                    </select>
-                  </div>
-                  <div className="teacher-selection-bar">
-                    <span>
-                      {safeSelected.length
-                        ? `Выбрано: ${safeSelected.length}`
-                        : `Всего: ${data.students.length}`}
-                    </span>
-                    {safeSelected.length > 0 && (
-                      <>
+                      <dl className="teacher-facts">
+                        <div>
+                          <dt>С положительным балансом</dt>
+                          <dd>
+                            {stats.withPoints} из {stats.totalStudents}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>С наградами</dt>
+                          <dd>
+                            {stats.withAchievements} из {stats.totalStudents}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Охват наградами</dt>
+                          <dd>{stats.achievementCoverage}%</dd>
+                        </div>
+                        <div>
+                          <dt>Без наград</dt>
+                          <dd>
+                            {stats.totalStudents - stats.withAchievements}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Новых за 7 дней</dt>
+                          <dd>{stats.newThisWeek}</dd>
+                        </div>
+                      </dl>
+                    </section>
+                    <section className="teacher-section">
+                      <div className="teacher-section-heading">
+                        <h2>Баланс класса</h2>
                         <button
                           type="button"
                           className="teacher-button subtle"
@@ -746,372 +612,551 @@ export function TeacherPanel({
                         >
                           Выдать награду
                         </button>
-                        <button
-                          type="button"
-                          className="teacher-button subtle"
-                          onClick={() => setSelected([])}
-                        >
-                          Снять выбор
-                        </button>
-                      </>
-                    )}
+                      </div>
+                      <dl className="teacher-facts">
+                        <div>
+                          <dt>Медиана</dt>
+                          <dd>{number(stats.medianNuts)}</dd>
+                        </div>
+                        <div>
+                          <dt>Наибольший баланс</dt>
+                          <dd>{number(stats.maximumNuts)}</dd>
+                        </div>
+                        <div>
+                          <dt>Наименьший баланс</dt>
+                          <dd>{number(stats.minimumNuts)}</dd>
+                        </div>
+                        <div>
+                          <dt>Наград за 7 дней</dt>
+                          <dd>{stats.awardsThisWeek}</dd>
+                        </div>
+                      </dl>
+                    </section>
                   </div>
-                  <div className="teacher-table-head" aria-hidden="true">
-                    <span>Ученик</span>
-                    <span>Баллы</span>
-                    <span>Награды</span>
-                    <span>Управление</span>
-                  </div>
-                  <ul className="teacher-students">
-                    {visible.map((student) => {
-                      const protectedRow = !teacher && adminIds.has(student.id);
-                      return (
-                        <li key={student.id}>
-                          <div className="teacher-student-row">
-                            <label className="teacher-student-name">
-                              <input
-                                type="checkbox"
-                                disabled={protectedRow}
-                                checked={safeSelected.includes(student.id)}
-                                onChange={() => toggle(student.id)}
-                                aria-label={`Выбрать: ${student.name}`}
-                              />
-                              <span>
-                                <strong>{student.name}</strong>
-                                {adminIds.has(student.id) && (
-                                  <small>Администратор</small>
-                                )}
-                              </span>
-                            </label>
-                            <div className="teacher-row-number">
-                              {number(student.nuts)}
-                              <small>баллы</small>
-                            </div>
-                            <div className="teacher-row-number">
-                              {student.achievements.length}
-                              <small>награды</small>
-                            </div>
-                            <div className="teacher-row-actions">
-                              {teacher && !adminIds.has(student.id) && (
-                                <button
-                                  type="button"
-                                  className="teacher-button subtle"
-                                  aria-label={`Назначить администратором: ${student.name}`}
-                                  disabled={!extras.available}
-                                  onClick={() => {
-                                    setTab("administrators");
-                                    setAdminEditor(student.id);
-                                  }}
-                                >
-                                  <ShieldCheck size={16} aria-hidden="true" />
-                                  Назначить
-                                </button>
-                              )}
-                              {!protectedRow && (
-                                <StudentAccess
-                                  id={student.id}
-                                  name={student.name}
-                                  teacher={teacher}
-                                  onError={fail}
-                                  onPassword={(password) =>
-                                    changePassword(student.id, password)
-                                  }
-                                  onDelete={() =>
-                                    deleteStudent(student.id, student.name)
-                                  }
-                                />
-                              )}
-                            </div>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  {!visible.length && (
-                    <div className="teacher-empty">
-                      <p>
-                        {query
-                          ? "Ученики не найдены."
-                          : "В классе пока нет учеников."}
-                      </p>
-                      <button
-                        type="button"
-                        className="teacher-button"
-                        onClick={() =>
-                          query ? setQuery("") : setShowAdd(true)
-                        }
-                      >
-                        {query ? "Сбросить поиск" : "Добавить учеников"}
-                      </button>
-                    </div>
-                  )}
-                </section>
-              </>
-            )}
-            {tab === "awards" && (
-              <div className="teacher-awards-layout">
-                <section className="teacher-section">
-                  <div className="teacher-section-heading">
-                    <h2>Получатели</h2>
-                    <span>{safeSelected.length} выбрано</span>
-                  </div>
-                  <div className="teacher-search">
-                    <Search size={18} aria-hidden="true" />
-                    <input
-                      name="award-search"
-                      type="search"
-                      autoComplete="off"
-                      aria-label="Поиск получателя"
-                      placeholder="Поиск по имени…"
-                      value={query}
-                      onChange={(event) => setQuery(event.target.value)}
-                    />
-                  </div>
-                  <div className="teacher-inline-actions">
-                    <button
-                      type="button"
-                      className="teacher-button subtle"
-                      onClick={() => {
-                        if (eligible.length > 100) {
-                          fail(
-                            "За один раз можно выбрать до 100 учеников. Уточните поиск.",
-                          );
-                          return;
-                        }
-                        setSelected(eligible.map((s) => s.id));
-                      }}
-                    >
-                      Выбрать найденных
-                    </button>
-                    <button
-                      type="button"
-                      className="teacher-button subtle"
-                      onClick={() => setSelected([])}
-                    >
-                      Снять выбор
-                    </button>
-                  </div>
-                  <ul className="teacher-recipients">
-                    {eligible.map((student) => (
-                      <li key={student.id}>
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={safeSelected.includes(student.id)}
-                            onChange={() => toggle(student.id)}
-                          />
-                          <span>{student.name}</span>
-                          <small>{number(student.nuts)} б.</small>
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                  {!eligible.length && (
-                    <p className="teacher-empty">Подходящих учеников нет.</p>
-                  )}
-                </section>
-                <div className="teacher-award-forms">
-                  <form
-                    noValidate
-                    className="teacher-section"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      void givePoints();
-                    }}
-                  >
-                    <h2>Баллы</h2>
-                    <div className="teacher-field">
-                      <label htmlFor="award-amount">
-                        Каждому выбранному ученику
-                      </label>
-                      <input
-                        id="award-amount"
-                        name="amount"
-                        type="number"
-                        step={1}
-                        min={-1000000}
-                        max={1000000}
-                        value={amount}
-                        onChange={(event) => setAmount(event.target.value)}
-                      />
-                    </div>
-                    <div className="teacher-quick-amounts">
-                      {[1, 5, 10, 25].map((value) => (
-                        <button
-                          key={value}
-                          type="button"
-                          className="teacher-button"
-                          aria-pressed={amount === String(value)}
-                          onClick={() => setAmount(String(value))}
-                        >
-                          +{value}
-                        </button>
-                      ))}
-                    </div>
-                    <p className="teacher-hint">
-                      Минус перед числом спишет баллы.
-                      {!teacher &&
-                        ` Расход лимита: ${number(Number.isFinite(Number(amount)) ? Math.abs(Number(amount)) * safeSelected.length : 0)}.`}
-                    </p>
-                    <button type="submit" className="teacher-button primary">
-                      {Number(amount) < 0 ? "Списать баллы" : "Начислить баллы"}
-                    </button>
-                  </form>
-                  <form
-                    noValidate
-                    className="teacher-section"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      void giveAward();
-                    }}
-                  >
-                    <h2>Награда</h2>
-                    <div className="teacher-field">
-                      <label htmlFor="award-title">Название</label>
-                      <input
-                        id="award-title"
-                        name="achievement"
-                        autoComplete="off"
-                        maxLength={300}
-                        value={title}
-                        onChange={(event) => setTitle(event.target.value)}
-                        placeholder="Например, работа в команде"
-                      />
-                    </div>
-                    <button type="submit" className="teacher-button primary">
-                      Выдать награду
-                    </button>
-                  </form>
-                </div>
-              </div>
-            )}
-            {tab === "administrators" && teacher && (
-              <>
-                {!extras.available ? (
-                  <section className="teacher-section">
-                    <h3>Нужно обновить Supabase</h3>
-                    <p className="teacher-hint">
-                      Назначение и ограничения станут доступны после применения
-                      обновления базы.
-                    </p>
-                  </section>
-                ) : (
-                  <>
-                    {adminEditor !== null && (
-                      <AdministratorSettings
-                        key={adminEditor}
-                        students={data.students}
-                        initialId={adminEditor || undefined}
-                        initialLimits={
-                          editorAssignment
-                            ? limitsFor(editorAssignment)
-                            : undefined
-                        }
-                        onSave={saveAdministrator}
-                        onCancel={() => setAdminEditor(null)}
-                      />
-                    )}
+                  <TeacherCharts students={data.students} />
+                  <div className="teacher-overview-grid">
                     <section className="teacher-section">
-                      <p className="teacher-hint">
-                        Администратор входит по своему ученическому логину и
-                        паролю. Его результаты и личный дневник сохраняются.
-                      </p>
-                      <ul className="teacher-administrators">
-                        {extras.administrators.map((assigned) => {
-                          const student = data.students.find(
-                            (s) => s.id === assigned.student_id,
-                          );
-                          if (!student) return null;
-                          return (
-                            <li key={assigned.student_id}>
-                              <div>
-                                <strong>{student.name}</strong>
-                                <dl>
-                                  <div>
-                                    <dt>В классе</dt>
-                                    <dd>до {assigned.capacity_limit}</dd>
-                                  </div>
-                                  <div>
-                                    <dt>Удаления</dt>
-                                    <dd>{assigned.deleted_limit}/день</dd>
-                                  </div>
-                                  <div>
-                                    <dt>Баллы</dt>
-                                    <dd>{assigned.points_limit}/день</dd>
-                                  </div>
-                                  <div>
-                                    <dt>Награды</dt>
-                                    <dd>{assigned.awards_limit}/день</dd>
-                                  </div>
-                                </dl>
-                              </div>
-                              <div className="teacher-inline-actions">
-                                <button
-                                  type="button"
-                                  className="teacher-button"
-                                  onClick={() =>
-                                    setAdminEditor(assigned.student_id)
-                                  }
-                                >
-                                  Ограничения
-                                </button>
-                                <button
-                                  type="button"
-                                  className="teacher-button subtle"
-                                  onClick={() => {
-                                    if (
-                                      window.confirm(
-                                        `Снять права администратора у ${student.name}? Ученик и его результаты сохранятся.`,
-                                      )
-                                    )
-                                      void run(async () => {
-                                        await configureStudentAdministrator(
-                                          student.id,
-                                          limitsFor(assigned),
-                                          false,
-                                        );
-                                        return "Права администратора сняты.";
-                                      });
-                                  }}
-                                >
-                                  Снять права
-                                </button>
-                              </div>
+                      <div className="teacher-section-heading">
+                        <h2>Рейтинг</h2>
+                        <span>Первые пять</span>
+                      </div>
+                      <ol className="teacher-ranking">
+                        {ranked.slice(0, 5).map((student, index) => (
+                          <ViewTransition
+                            key={student.id}
+                            default="none"
+                            update="auto"
+                          >
+                            <li>
+                              <span>{index + 1}</span>
+                              <strong>{student.name}</strong>
+                              <span>{number(student.nuts)} б.</span>
                             </li>
-                          );
-                        })}
-                      </ul>
-                      {!extras.administrators.length && (
+                          </ViewTransition>
+                        ))}
+                      </ol>
+                      {!ranked.length && (
                         <p className="teacher-empty">
-                          Выберите ученика и назначьте его администратором.
+                          Добавьте учеников, чтобы увидеть рейтинг.
                         </p>
                       )}
                     </section>
-                  </>
-                )}
-              </>
-            )}
-            {tab === "activity" && (
-              <section className="teacher-section">
-                <div className="teacher-section-heading">
-                  <h2>{teacher ? "Действия в классе" : "Мои действия"}</h2>
-                  <span>Время по Москве</span>
+                    <section className="teacher-section">
+                      <div className="teacher-section-heading">
+                        <h2>Последние награды</h2>
+                      </div>
+                      <ul className="teacher-recent-awards">
+                        {recent.map((award) => (
+                          <li key={award.id}>
+                            <Award size={17} aria-hidden="true" />
+                            <div>
+                              <strong>{award.title}</strong>
+                              <p>{award.name}</p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                      {!recent.length && (
+                        <p className="teacher-empty">
+                          Награды пока не выдавались.
+                        </p>
+                      )}
+                    </section>
+                  </div>
+                </>
+              )}
+              {tab === "students" && (
+                <>
+                  {showAdd && (
+                    <form
+                      noValidate
+                      className="teacher-add-form"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void addStudents();
+                      }}
+                    >
+                      <div>
+                        <h3>Новые ученики</h3>
+                        <p className="teacher-hint">
+                          Каждое имя с новой строки. Пароль создадим
+                          автоматически. Свой можно задать так: Имя Фамилия |
+                          пароль.
+                        </p>
+                      </div>
+                      <div className="teacher-field">
+                        <label htmlFor="new-students">Имена и фамилии</label>
+                        <textarea
+                          ref={addField}
+                          id="new-students"
+                          name="student-names"
+                          rows={4}
+                          autoComplete="off"
+                          value={namesText}
+                          onChange={(event) => setNamesText(event.target.value)}
+                          placeholder={"Иванов Иван\nПетрова Анна"}
+                        />
+                        <div className="teacher-inline-actions">
+                          <button
+                            type="submit"
+                            className="teacher-button primary"
+                          >
+                            Создать аккаунты
+                          </button>
+                          <button
+                            type="button"
+                            className="teacher-button subtle"
+                            onClick={() => setShowAdd(false)}
+                          >
+                            Отмена
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  )}
+                  <section className="teacher-section teacher-class">
+                    <div className="teacher-list-toolbar">
+                      <div className="teacher-search">
+                        <Search size={18} aria-hidden="true" />
+                        <input
+                          name="student-search"
+                          type="search"
+                          autoComplete="off"
+                          value={query}
+                          aria-label="Поиск ученика"
+                          placeholder="Поиск по имени…"
+                          onChange={(event) => setQuery(event.target.value)}
+                        />
+                      </div>
+                      <select
+                        aria-label="Сортировка учеников"
+                        name="student-sort"
+                        value={sort}
+                        onChange={(event) =>
+                          startTransition(() => setSort(event.target.value))
+                        }
+                      >
+                        <option value="name">По имени</option>
+                        <option value="points">По баллам</option>
+                      </select>
+                    </div>
+                    <div className="teacher-selection-bar">
+                      <span>
+                        {safeSelected.length
+                          ? `Выбрано: ${safeSelected.length}`
+                          : `Всего: ${data.students.length}`}
+                      </span>
+                      {safeSelected.length > 0 && (
+                        <>
+                          <button
+                            type="button"
+                            className="teacher-button subtle"
+                            onClick={() => choose("awards")}
+                          >
+                            Выдать награду
+                          </button>
+                          <button
+                            type="button"
+                            className="teacher-button subtle"
+                            onClick={() => setSelected([])}
+                          >
+                            Снять выбор
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    <div className="teacher-table-head" aria-hidden="true">
+                      <span>Ученик</span>
+                      <span>Баллы</span>
+                      <span>Награды</span>
+                      <span>Управление</span>
+                    </div>
+                    <ul className="teacher-students">
+                      {visible.map((student) => {
+                        const protectedRow =
+                          !teacher && adminIds.has(student.id);
+                        return (
+                          <ViewTransition
+                            key={student.id}
+                            default="none"
+                            update="auto"
+                          >
+                            <li>
+                              <div className="teacher-student-row">
+                                <label className="teacher-student-name">
+                                  <input
+                                    type="checkbox"
+                                    disabled={protectedRow}
+                                    checked={safeSelected.includes(student.id)}
+                                    onChange={() => toggle(student.id)}
+                                    aria-label={`Выбрать: ${student.name}`}
+                                  />
+                                  <span>
+                                    <strong>{student.name}</strong>
+                                    {adminIds.has(student.id) && (
+                                      <small>Администратор</small>
+                                    )}
+                                  </span>
+                                </label>
+                                <div className="teacher-row-number">
+                                  {number(student.nuts)}
+                                  <small>баллы</small>
+                                </div>
+                                <div className="teacher-row-number">
+                                  {student.achievements.length}
+                                  <small>награды</small>
+                                </div>
+                                <div className="teacher-row-actions">
+                                  {teacher && !adminIds.has(student.id) && (
+                                    <button
+                                      type="button"
+                                      className="teacher-button subtle"
+                                      aria-label={`Назначить администратором: ${student.name}`}
+                                      disabled={!extras.available}
+                                      onClick={() => {
+                                        startTransition(() => {
+                                          setTab("administrators");
+                                          setAdminEditor(student.id);
+                                        });
+                                      }}
+                                    >
+                                      <ShieldCheck
+                                        size={16}
+                                        aria-hidden="true"
+                                      />
+                                      Назначить
+                                    </button>
+                                  )}
+                                  {!protectedRow && (
+                                    <StudentAccess
+                                      id={student.id}
+                                      name={student.name}
+                                      teacher={teacher}
+                                      onError={fail}
+                                      onPassword={(password) =>
+                                        changePassword(student.id, password)
+                                      }
+                                      onDelete={() =>
+                                        deleteStudent(student.id, student.name)
+                                      }
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                            </li>
+                          </ViewTransition>
+                        );
+                      })}
+                    </ul>
+                    {!visible.length && (
+                      <div className="teacher-empty">
+                        <p>
+                          {query
+                            ? "Ученики не найдены."
+                            : "В классе пока нет учеников."}
+                        </p>
+                        <button
+                          type="button"
+                          className="teacher-button"
+                          onClick={() =>
+                            query ? setQuery("") : setShowAdd(true)
+                          }
+                        >
+                          {query ? "Сбросить поиск" : "Добавить учеников"}
+                        </button>
+                      </div>
+                    )}
+                  </section>
+                </>
+              )}
+              {tab === "awards" && (
+                <div className="teacher-awards-layout">
+                  <section className="teacher-section">
+                    <div className="teacher-section-heading">
+                      <h2>Получатели</h2>
+                      <span>{safeSelected.length} выбрано</span>
+                    </div>
+                    <div className="teacher-search">
+                      <Search size={18} aria-hidden="true" />
+                      <input
+                        name="award-search"
+                        type="search"
+                        autoComplete="off"
+                        aria-label="Поиск получателя"
+                        placeholder="Поиск по имени…"
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                      />
+                    </div>
+                    <div className="teacher-inline-actions">
+                      <button
+                        type="button"
+                        className="teacher-button subtle"
+                        onClick={() => {
+                          if (eligible.length > 100) {
+                            fail(
+                              "За один раз можно выбрать до 100 учеников. Уточните поиск.",
+                            );
+                            return;
+                          }
+                          setSelected(eligible.map((s) => s.id));
+                        }}
+                      >
+                        Выбрать найденных
+                      </button>
+                      <button
+                        type="button"
+                        className="teacher-button subtle"
+                        onClick={() => setSelected([])}
+                      >
+                        Снять выбор
+                      </button>
+                    </div>
+                    <ul className="teacher-recipients">
+                      {eligible.map((student) => (
+                        <li key={student.id}>
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={safeSelected.includes(student.id)}
+                              onChange={() => toggle(student.id)}
+                            />
+                            <span>{student.name}</span>
+                            <small>{number(student.nuts)} б.</small>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                    {!eligible.length && (
+                      <p className="teacher-empty">Подходящих учеников нет.</p>
+                    )}
+                  </section>
+                  <div className="teacher-award-forms">
+                    <form
+                      noValidate
+                      className="teacher-section"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void givePoints();
+                      }}
+                    >
+                      <h2>Баллы</h2>
+                      <div className="teacher-field">
+                        <label htmlFor="award-amount">
+                          Каждому выбранному ученику
+                        </label>
+                        <input
+                          id="award-amount"
+                          name="amount"
+                          type="number"
+                          step={1}
+                          min={-1000000}
+                          max={1000000}
+                          value={amount}
+                          onChange={(event) => setAmount(event.target.value)}
+                        />
+                      </div>
+                      <div className="teacher-quick-amounts">
+                        {[1, 5, 10, 25].map((value) => (
+                          <button
+                            key={value}
+                            type="button"
+                            className="teacher-button"
+                            aria-pressed={amount === String(value)}
+                            onClick={() => setAmount(String(value))}
+                          >
+                            +{value}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="teacher-hint">
+                        Минус перед числом спишет баллы.
+                        {!teacher &&
+                          ` Расход лимита: ${number(Number.isFinite(Number(amount)) ? Math.abs(Number(amount)) * safeSelected.length : 0)}.`}
+                      </p>
+                      <button type="submit" className="teacher-button primary">
+                        {Number(amount) < 0
+                          ? "Списать баллы"
+                          : "Начислить баллы"}
+                      </button>
+                    </form>
+                    <form
+                      noValidate
+                      className="teacher-section"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void giveAward();
+                      }}
+                    >
+                      <h2>Награда</h2>
+                      <div className="teacher-field">
+                        <label htmlFor="award-title">Название</label>
+                        <input
+                          id="award-title"
+                          name="achievement"
+                          autoComplete="off"
+                          maxLength={300}
+                          value={title}
+                          onChange={(event) => setTitle(event.target.value)}
+                          placeholder="Например, работа в команде"
+                        />
+                      </div>
+                      <button type="submit" className="teacher-button primary">
+                        Выдать награду
+                      </button>
+                    </form>
+                  </div>
                 </div>
-                {extras.available ? (
-                  <ActivityList entries={extras.activity} />
-                ) : (
-                  <p className="teacher-empty">
-                    Журнал появится после обновления базы.
-                  </p>
-                )}
-                {extras.moreActivity && (
-                  <p className="teacher-hint">
-                    Показаны последние 200 записей.
-                  </p>
-                )}
-              </section>
-            )}
-          </fieldset>
+              )}
+              {tab === "administrators" && teacher && (
+                <>
+                  {!extras.available ? (
+                    <section className="teacher-section">
+                      <h3>Нужно обновить Supabase</h3>
+                      <p className="teacher-hint">
+                        Назначение и ограничения станут доступны после
+                        применения обновления базы.
+                      </p>
+                    </section>
+                  ) : (
+                    <>
+                      {adminEditor !== null && (
+                        <AdministratorSettings
+                          key={adminEditor}
+                          students={data.students}
+                          initialId={adminEditor || undefined}
+                          initialLimits={
+                            editorAssignment
+                              ? limitsFor(editorAssignment)
+                              : undefined
+                          }
+                          onEdit={() => setFeedback(null)}
+                          onSave={saveAdministrator}
+                          onCancel={() => setAdminEditor(null)}
+                        />
+                      )}
+                      <section className="teacher-section">
+                        <p className="teacher-hint">
+                          Администратор входит по своему ученическому логину и
+                          паролю. Его результаты и личный дневник сохраняются.
+                        </p>
+                        <ul className="teacher-administrators">
+                          {extras.administrators.map((assigned) => {
+                            const student = data.students.find(
+                              (s) => s.id === assigned.student_id,
+                            );
+                            if (!student) return null;
+                            return (
+                              <li key={assigned.student_id}>
+                                <div>
+                                  <strong>{student.name}</strong>
+                                  <dl>
+                                    <div>
+                                      <dt>В классе</dt>
+                                      <dd>до {assigned.capacity_limit}</dd>
+                                    </div>
+                                    <div>
+                                      <dt>Удаления</dt>
+                                      <dd>{assigned.deleted_limit}/день</dd>
+                                    </div>
+                                    <div>
+                                      <dt>Баллы</dt>
+                                      <dd>{assigned.points_limit}/день</dd>
+                                    </div>
+                                    <div>
+                                      <dt>Награды</dt>
+                                      <dd>{assigned.awards_limit}/день</dd>
+                                    </div>
+                                  </dl>
+                                </div>
+                                <div className="teacher-inline-actions">
+                                  <button
+                                    type="button"
+                                    className="teacher-button"
+                                    onClick={() =>
+                                      setAdminEditor(assigned.student_id)
+                                    }
+                                  >
+                                    Ограничения
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="teacher-button subtle"
+                                    onClick={() => {
+                                      if (
+                                        window.confirm(
+                                          `Снять права администратора у ${student.name}? Ученик и его результаты сохранятся.`,
+                                        )
+                                      )
+                                        void run(async () => {
+                                          await configureStudentAdministrator(
+                                            student.id,
+                                            limitsFor(assigned),
+                                            false,
+                                          );
+                                          return "Права администратора сняты.";
+                                        });
+                                    }}
+                                  >
+                                    Снять права
+                                  </button>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                        {!extras.administrators.length && (
+                          <p className="teacher-empty">
+                            Выберите ученика и назначьте его администратором.
+                          </p>
+                        )}
+                      </section>
+                    </>
+                  )}
+                </>
+              )}
+              {tab === "activity" && (
+                <section className="teacher-section">
+                  <div className="teacher-section-heading">
+                    <h2>{teacher ? "Действия в классе" : "Мои действия"}</h2>
+                    <span>Время по Москве</span>
+                  </div>
+                  {extras.available ? (
+                    <ActivityList entries={extras.activity} />
+                  ) : (
+                    <p className="teacher-empty">
+                      Журнал появится после обновления базы.
+                    </p>
+                  )}
+                  {extras.moreActivity && (
+                    <p className="teacher-hint">
+                      Показаны последние 200 записей.
+                    </p>
+                  )}
+                </section>
+              )}
+            </fieldset>
+          </ViewTransition>
           {busy && (
             <p className="teacher-saving" role="status">
               <Check size={15} aria-hidden="true" />

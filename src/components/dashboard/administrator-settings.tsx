@@ -1,5 +1,6 @@
 "use client";
 import { useState, type FormEvent } from "react";
+import { StudentPicker } from "@/components/ui/student-picker";
 import type { Student } from "@/data/seed";
 import {
   DEFAULT_ADMINISTRATOR_LIMITS,
@@ -25,12 +26,14 @@ export function AdministratorSettings({
   initialLimits,
   onSave,
   onCancel,
+  onEdit,
 }: {
   students: Student[];
   initialId?: string;
   initialLimits?: AdministratorLimits;
   onSave: (id: string, limits: AdministratorLimits) => Promise<boolean>;
   onCancel: () => void;
+  onEdit?: () => void;
 }) {
   const [id, setId] = useState(initialId ?? "");
   const [limits, setLimits] = useState<
@@ -75,20 +78,16 @@ export function AdministratorSettings({
       </div>
       <div className="teacher-field">
         <label htmlFor="administrator-student">Ученик</label>
-        <select
+        <StudentPicker
           id="administrator-student"
-          name="administrator"
           value={id}
-          onChange={(event) => setId(event.target.value)}
+          students={students}
+          onChange={(next) => {
+            setId(next);
+            onEdit?.();
+          }}
           disabled={Boolean(initialId)}
-        >
-          <option value="">Выберите ученика</option>
-          {students.map((student) => (
-            <option key={student.id} value={student.id}>
-              {student.name}
-            </option>
-          ))}
-        </select>
+        />
       </div>
       <div className="teacher-limit-fields">
         {fields.map((field) => (
