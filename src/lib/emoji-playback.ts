@@ -9,6 +9,7 @@ export class ReceivedEmojiPlayback {
   private opening: { peer: string; messages: EmojiMessage[] } | null = null;
   private queues = new Map<string, Map<number, ReceivedReaction>>();
   private completed = new Set<number>();
+  private started = new Set<number>();
   private observed = new Map<string, number>();
   begin(peer: string) {
     this.opening = { peer, messages: [] };
@@ -50,18 +51,29 @@ export class ReceivedEmojiPlayback {
   next(peer: string): ReceivedReaction | null {
     if (this.isOpening(peer)) return null;
     return (
-      [...(this.queues.get(peer)?.values() ?? [])].sort(
-        (a, b) => a.id - b.id,
-      )[0] ?? null
+      [...(this.queues.get(peer)?.values() ?? [])]
+        .filter((message) => !this.started.has(message.id))
+        .sort((a, b) => a.id - b.id)[0] ?? null
     );
   }
+  start(peer: string, id: number) {
+    if (!this.queues.get(peer)?.has(id) || this.started.has(id)) return false;
+    this.started.add(id);
+    return true;
+  }
+  release(id: number) {
+    this.started.delete(id);
+  }
   complete(peer: string, id: number) {
+    this.started.delete(id);
     this.queues.get(peer)?.delete(id);
     this.completed.add(id);
   }
   skip(peer: string) {
-    for (const message of this.queues.get(peer)?.values() ?? [])
+    for (const message of this.queues.get(peer)?.values() ?? []) {
+      this.started.delete(message.id);
       this.completed.add(message.id);
+    }
     this.queues.delete(peer);
   }
   readableThrough(peer: string) {

@@ -40,7 +40,7 @@ import {
   type EmojiPeer,
   type ReactionEmoji,
 } from "@/lib/emoji-reactions";
-import { EMOJI_BURST_LIFETIME_MS } from "@/lib/emoji-burst-layout";
+import { EMOJI_BURST_INTERVAL_MS } from "@/lib/emoji-burst-layout";
 import {
   ReceivedEmojiPlayback,
   type ReceivedReaction,
@@ -143,9 +143,13 @@ export function StudentChats({
   const [pending, setPending] = useState<PendingSend | null>(null);
   const [sending, setSending] = useState(false);
   const [blocking, setBlocking] = useState(false);
-  const [burst, setBurst] = useState<
-    (EmojiBurstEvent & { peer: string; message: ReceivedReaction }) | null
-  >(null);
+  const [bursts, setBursts] = useState<
+    (EmojiBurstEvent & { peer: string; message: ReceivedReaction })[]
+  >([]);
+  const runningBursts = useRef(
+    new Map<string, { peer: string; message: ReceivedReaction }>(),
+  );
+  const lastLaunch = useRef(-Infinity);
   const [playbackVersion, setPlaybackVersion] = useState(0);
   const [notice, setNotice] = useState<{
     peer: string;
@@ -250,31 +254,41 @@ export function StudentChats({
   );
   const selected = peers.find((peer) => peer.id === peerId) ?? null;
   const selectedBlocked = selected?.blocked ?? false;
+  const completeBurst = useCallback(
+    (id: string) => {
+      const running = runningBursts.current.get(id);
+      if (!running) return;
+      if (!document.hidden)
+        playback.current.complete(running.peer, running.message.id);
+      else playback.current.release(running.message.id);
+      runningBursts.current.delete(id);
+      setBursts((current) => current.filter((item) => item.id !== id));
+      wakePlayback();
+    },
+    [wakePlayback],
+  );
   useEffect(() => {
-    if (!active || !peerId || !visible || selectedBlocked) return;
-    const player = playback.current;
-    if (player.isOpening(peerId)) return;
     const timer = setTimeout(() => {
-      if (!animationsEnabled) {
-        if (!player.next(peerId) && !burst) return;
-        player.skip(peerId);
-        setBurst(null);
-        wakePlayback();
-        return;
+      let changed = false;
+      for (const [id, running] of runningBursts.current) {
+        if (
+          active &&
+          running.peer === peerId &&
+          visible &&
+          !selectedBlocked &&
+          animationsEnabled
+        )
+          continue;
+        playback.current.release(running.message.id);
+        runningBursts.current.delete(id);
+        changed = true;
       }
-      if (burst) return;
-      const message = player.next(peerId);
-      if (!message?.emoji) return;
-      setBurst({
-        id: crypto.randomUUID(),
-        peer: peerId,
-        message,
-        emoji: message.emoji,
-        x: message.point?.x ?? window.innerWidth / 2,
-        y: message.point?.y ?? window.innerHeight * 0.6,
-        width: window.innerWidth,
-        height: window.innerHeight,
-      });
+      if (changed) {
+        setBursts((current) =>
+          current.filter((item) => runningBursts.current.has(item.id)),
+        );
+        wakePlayback();
+      }
     }, 0);
     return () => clearTimeout(timer);
   }, [
@@ -283,36 +297,54 @@ export function StudentChats({
     visible,
     selectedBlocked,
     animationsEnabled,
-    burst,
-    playbackVersion,
     wakePlayback,
   ]);
   useEffect(() => {
-    if (!burst) return;
+    if (!active || !peerId || !visible || selectedBlocked) return;
     const player = playback.current;
-    const playing =
-      active &&
-      peerId === burst.peer &&
-      visible &&
-      !selectedBlocked &&
-      animationsEnabled;
+    if (player.isOpening(peerId)) return;
     const timer = setTimeout(
       () => {
-        if (playing && !document.hidden)
-          player.complete(burst.peer, burst.message.id);
-        setBurst(null);
+        if (!animationsEnabled) {
+          if (!player.next(peerId) && !runningBursts.current.size) return;
+          player.skip(peerId);
+          wakePlayback();
+          return;
+        }
+        if (document.hidden) return;
+        const message = player.next(peerId);
+        if (!message?.emoji || !player.start(peerId, message.id)) return;
+        lastLaunch.current = performance.now();
+        const id = crypto.randomUUID();
+        runningBursts.current.set(id, { peer: peerId, message });
+        setBursts((current) => [
+          ...current,
+          {
+            id,
+            peer: peerId,
+            message,
+            emoji: message.emoji!,
+            x: message.point?.x ?? window.innerWidth / 2,
+            y: message.point?.y ?? window.innerHeight * 0.6,
+            width: window.innerWidth,
+            height: window.innerHeight,
+          },
+        ]);
         wakePlayback();
       },
-      playing ? EMOJI_BURST_LIFETIME_MS : 0,
+      Math.max(
+        0,
+        EMOJI_BURST_INTERVAL_MS - (performance.now() - lastLaunch.current),
+      ),
     );
     return () => clearTimeout(timer);
   }, [
-    burst,
     active,
     peerId,
     visible,
     selectedBlocked,
     animationsEnabled,
+    playbackVersion,
     wakePlayback,
   ]);
   useEffect(() => {
@@ -482,7 +514,6 @@ export function StudentChats({
     } catch {
       /* preference still works */
     }
-    if (key === "effects" && !next.effects) setBurst(null);
   }
   function openPeer(id: string) {
     currentPeer.current = id;
@@ -611,7 +642,7 @@ export function StudentChats({
             : peer,
         ),
       );
-      setBurst(null);
+      setBursts([]);
       setNotice(null);
       await refresh();
     } catch (reason) {
@@ -994,12 +1025,19 @@ export function StudentChats({
           </div>
         )}
       </section>
-      {burst &&
-        active &&
-        peerId === burst.peer &&
+      {active &&
         visible &&
         animationsEnabled &&
-        !selectedBlocked && <EmojiBurst key={burst.id} event={burst} />}
+        !selectedBlocked &&
+        bursts
+          .filter((burst) => burst.peer === peerId)
+          .map((burst) => (
+            <EmojiBurst
+              key={burst.id}
+              event={burst}
+              onComplete={completeBurst}
+            />
+          ))}
       {notice && (
         <div className="emoji-notification" role="status">
           <button type="button" onClick={() => openPeer(notice.peer)}>

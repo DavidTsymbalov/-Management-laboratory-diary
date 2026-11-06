@@ -1,10 +1,11 @@
 "use client";
-import type { CSSProperties } from "react";
+import { memo, useEffect, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import type { ReactionEmoji } from "@/lib/emoji-reactions";
 import {
   emojiBurstLayout,
   EMOJI_BURST_DURATION_MS,
+  EMOJI_BURST_LIFETIME_MS,
 } from "@/lib/emoji-burst-layout";
 export type EmojiBurstEvent = {
   id: string;
@@ -14,7 +15,20 @@ export type EmojiBurstEvent = {
   width: number;
   height: number;
 };
-export function EmojiBurst({ event }: { event: EmojiBurstEvent }) {
+export const EmojiBurst = memo(function EmojiBurst({
+  event,
+  onComplete,
+}: {
+  event: EmojiBurstEvent;
+  onComplete: (id: string) => void;
+}) {
+  useEffect(() => {
+    const timer = setTimeout(
+      () => onComplete(event.id),
+      EMOJI_BURST_LIFETIME_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [event.id, onComplete]);
   if (typeof document === "undefined") return null;
   const particles = emojiBurstLayout(event.width, event.height, event);
   return createPortal(
@@ -44,4 +58,4 @@ export function EmojiBurst({ event }: { event: EmojiBurstEvent }) {
     </div>,
     document.body,
   );
-}
+});

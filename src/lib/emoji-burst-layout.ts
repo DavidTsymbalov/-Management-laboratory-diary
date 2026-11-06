@@ -1,3 +1,4 @@
+export const EMOJI_BURST_INTERVAL_MS = 300;
 export const EMOJI_BURST_DURATION_MS = 3600;
 export const EMOJI_BURST_LIFETIME_MS = 4200;
 export function emojiBurstLayout(

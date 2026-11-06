@@ -61,8 +61,12 @@ test("emoji allowlist and message reconciliation preserve order without mutating
   );
 });
 
-const { emojiBurstLayout, EMOJI_BURST_DURATION_MS, EMOJI_BURST_LIFETIME_MS } =
-  module("../src/lib/emoji-burst-layout.ts");
+const {
+  EMOJI_BURST_INTERVAL_MS,
+  emojiBurstLayout,
+  EMOJI_BURST_DURATION_MS,
+  EMOJI_BURST_LIFETIME_MS,
+} = module("../src/lib/emoji-burst-layout.ts");
 const { ReceivedEmojiPlayback } = module("../src/lib/emoji-playback.ts");
 test("large, slow emoji reach all screen regions on phone, landscape and desktop", () => {
   for (const [width, height] of [
@@ -178,4 +182,69 @@ test("leaving a conversation preserves its pending animations; new arrivals appe
   player.skip("anna");
   assert.equal(player.next("anna"), null);
   assert.equal(player.readableThrough("anna"), 3);
+});
+
+test("43 emoji launch every 300 ms while earlier effects stay alive and each message keeps its own completion", () => {
+  const player = new ReceivedEmojiPlayback();
+  const unread = Array.from({ length: 43 }, (_, i) => ({
+    id: i + 1,
+    sender_id: "anna",
+    emoji: i % 2 ? "❤️" : "💩",
+  }));
+  player.begin("anna");
+  player.observe("anna", 43);
+  player.finish("anna", unread);
+  assert.equal(EMOJI_BURST_INTERVAL_MS, 300);
+  const running = [];
+  let peak = 0;
+  for (let i = 0; i < 43; i++) {
+    const now = i * EMOJI_BURST_INTERVAL_MS;
+    for (const effect of running.filter((item) => item.ends <= now))
+      player.complete("anna", effect.id);
+    for (let j = running.length - 1; j >= 0; j--)
+      if (running[j].ends <= now) running.splice(j, 1);
+    const message = player.next("anna");
+    assert.equal(message.id, i + 1);
+    assert.equal(player.start("anna", message.id), true);
+    assert.equal(
+      player.start("anna", message.id),
+      false,
+      "live/history refresh cannot start an in-flight effect twice",
+    );
+    running.push({ id: message.id, ends: now + EMOJI_BURST_LIFETIME_MS });
+    peak = Math.max(peak, running.length);
+  }
+  assert.ok(peak > 1 && peak <= 14);
+  assert.equal(
+    player.next("anna"),
+    null,
+    "all 43 effects are launched without waiting for previous completions",
+  );
+  assert.ok(42 * EMOJI_BURST_INTERVAL_MS + EMOJI_BURST_LIFETIME_MS < 17000);
+  assert.ok(
+    player.readableThrough("anna") < 43,
+    "running effects remain unread until completion",
+  );
+  for (const effect of running) player.complete("anna", effect.id);
+  assert.equal(player.readableThrough("anna"), 43);
+});
+test("pausing overlapping effects releases their IDs for replay and cannot skip an earlier unfinished reaction", () => {
+  const player = new ReceivedEmojiPlayback();
+  player.begin("anna");
+  player.observe("anna", 3);
+  player.finish("anna", [
+    { id: 1, sender_id: "anna", emoji: "💩" },
+    { id: 2, sender_id: "anna", emoji: "❤️" },
+    { id: 3, sender_id: "anna", emoji: "🔥" },
+  ]);
+  player.start("anna", 1);
+  player.start("anna", 2);
+  player.complete("anna", 2);
+  assert.equal(player.readableThrough("anna"), 0);
+  player.release(1);
+  assert.equal(player.next("anna").id, 1);
+  player.start("anna", 1);
+  player.complete("anna", 1);
+  assert.equal(player.next("anna").id, 3);
+  assert.equal(player.readableThrough("anna"), 2);
 });

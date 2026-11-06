@@ -19,7 +19,8 @@ viewport over about four seconds. Effects use a body portal and never intercept 
 No background confetti, page shaking, floating decorative icons or timed onboarding.
 Animation and chat blocking remain directly controllable by the recipient. Audio is removed.
 An unopened conversation retains unread reactions. Opening it queues every unread
-emoji in chronological order, one complete four-second effect per message. A reaction
+emoji in chronological order, launching the next effect every 300 ms. Each effect
+keeps its own four-second lifetime and overlaps earlier effects; typing never waits. A reaction
 is marked read only after its effect finishes. Navigation or a hidden tab pauses the
 queue; unplayed messages remain unread across reloads. Live reactions play only in
 the selected visible conversation. Read history does not replay.
