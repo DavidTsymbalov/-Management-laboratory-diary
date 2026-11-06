@@ -1104,3 +1104,16 @@ html:not(.dark) .uc-footer-video-fade { background: linear-gradient(to bottom,#f
 @media (prefers-reduced-motion:reduce) {
   .teacher-workspace *, .feedback-toast { animation: none !important; transition: none !important; }
 }
+
+/* Three roles and the theme switch share two rows on tablet widths. */
+.site-header .site-logo { transform: none; }
+@media (min-width:640px) and (max-width:950px) {
+  .site-header-inner { height: auto; min-height: 96px; grid-template-columns: auto minmax(0,1fr); gap: 0 12px; }
+  .site-header-inner > div:first-child { height: 44px; }
+  .site-header .site-logo { justify-self: end; min-height: 44px; }
+  .site-header nav { grid-column: 1/-1; display: grid; grid-template-columns: 1fr 1fr 1fr auto; min-height: 48px; }
+  .main-shell:not(:has(.uc-hero)) { padding-top: 128px; }
+}
+@media (max-width:639px) {
+  .site-header nav > a { font-size: 10px; letter-spacing: .04em; }
+}

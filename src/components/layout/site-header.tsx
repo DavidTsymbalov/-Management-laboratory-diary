@@ -11,7 +11,7 @@ import { isStudentLoggedIn, isTeacherLoggedIn } from "@/lib/session";
 const baseLinks = [
   { key: "student", base: "/student/", label: "Ученик" },
   { key: "teacher", base: "/teacher/", label: "Учитель" },
-  { key: "admin", base: "/admin/", label: "Администратор" },
+  { key: "admin", base: "/admin/", label: "Админ" },
 ] as const;
 
 export function SiteHeader() {
