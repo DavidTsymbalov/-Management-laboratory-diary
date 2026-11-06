@@ -10,12 +10,10 @@ export function MainShell({ children }: { children: ReactNode }) {
 
   return (
     <main
-      key={pathname}
-      id="main-content"
-      tabIndex={-1}
       className={cn(
+        // без z-index на главной: иначе fixed-слоган «запирается» под пикселями
         "main-shell relative min-w-0 flex-1",
-        !onHome && "workspace z-10",
+        !onHome && "z-10 pt-20 pb-10 sm:pt-24 sm:pb-14",
       )}
     >
       {children}

@@ -1,17 +1,21 @@
 import Link from "next/link";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { ScrambleText } from "@/components/motion/scramble-text";
 import { cn } from "@/lib/cn";
 
 const variants = {
-  primary: "action primary",
-  secondary: "action secondary",
-  ghost: "quiet-action",
+  primary:
+    "border border-[#e5dac3]/60 bg-transparent text-[#e5dac3] hover:bg-[#e5dac3]/10",
+  secondary:
+    "border border-[#e5dac3]/35 bg-surface text-[#e5dac3] hover:bg-accent-soft",
+  /** Только текст — scramble вместо подчёркивания */
+  ghost: "btn-text bg-transparent text-[#e5dac3] hover:bg-transparent",
 } as const;
 
 const sizes = {
-  sm: "px-3",
-  md: "",
-  lg: "px-6",
+  sm: "min-h-11 px-3 py-2 text-xs tracking-[0.12em] uppercase sm:min-h-9 sm:px-1.5 sm:py-1",
+  md: "min-h-11 px-3 py-2 text-sm sm:px-1.5",
+  lg: "min-h-12 px-3 py-2 text-sm tracking-[0.06em] sm:px-1.5",
 } as const;
 
 type ButtonVariant = keyof typeof variants;
@@ -35,6 +39,11 @@ type ButtonAsLink = CommonProps & {
 
 export type ButtonProps = ButtonAsButton | ButtonAsLink;
 
+function wrapGhostLabel(children: ReactNode, ghost: boolean) {
+  if (!ghost || typeof children !== "string") return children;
+  return <><span className="sm:hidden">{children}</span><ScrambleText text={children} className="max-sm:!hidden" /></>;
+}
+
 export function Button({
   children,
   className,
@@ -42,24 +51,29 @@ export function Button({
   size = "md",
   ...props
 }: ButtonProps) {
+  const isGhost = variant === "ghost";
   const classes = cn(
-    "max-w-full whitespace-normal [overflow-wrap:anywhere]",
+    "group inline-flex max-w-full items-center justify-center gap-2 rounded-sm text-center font-semibold whitespace-normal [overflow-wrap:anywhere] transition duration-200",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+    "disabled:pointer-events-none disabled:opacity-45",
     variants[variant],
     sizes[size],
     className,
   );
 
+  const label = wrapGhostLabel(children, isGhost);
+
   if ("href" in props && props.href) {
     return (
       <Link href={props.href} className={classes}>
-        {children}
+        {label}
       </Link>
     );
   }
 
   return (
     <button className={classes} {...(props as ButtonAsButton)}>
-      {children}
+      {label}
     </button>
   );
 }
