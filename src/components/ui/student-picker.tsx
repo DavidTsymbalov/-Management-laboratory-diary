@@ -22,6 +22,7 @@ export function StudentPicker({
   const [active, setActive] = useState(0);
   const root = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
+  const skipFocusOpen = useRef(false);
   const selected = students.find((student) => student.id === value);
   const options = students.filter((student) =>
     student.name
@@ -43,12 +44,15 @@ export function StudentPicker({
       root.current
         ?.querySelector('[data-active="true"]')
         ?.scrollIntoView({ block: "nearest" });
-  }, [index, open]);
+  }, [index, open, query]);
   function choose(student: Student) {
     onChange(student.id);
     setOpen(false);
     setQuery("");
-    input.current?.focus();
+    if (document.activeElement !== input.current) {
+      skipFocusOpen.current = true;
+      input.current?.focus();
+    }
   }
   return (
     <div className="student-picker" ref={root}>
@@ -69,6 +73,10 @@ export function StudentPicker({
           placeholder={open ? "Поиск по имени…" : "Выберите ученика"}
           disabled={disabled}
           onFocus={() => {
+            if (skipFocusOpen.current) {
+              skipFocusOpen.current = false;
+              return;
+            }
             if (!disabled) {
               setQuery("");
               setActive(

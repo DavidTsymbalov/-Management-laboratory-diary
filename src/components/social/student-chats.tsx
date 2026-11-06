@@ -238,12 +238,12 @@ export function StudentChats({
   );
   const selected = peers.find((peer) => peer.id === peerId) ?? null;
   const messages = peerId ? (threads[peerId] ?? []) : [];
+  const mobileThreadOpen = active && narrow && Boolean(selected);
   useEffect(() => {
-    if (active && narrow && selected)
-      document.body.setAttribute("data-emoji-thread", "1");
+    if (mobileThreadOpen) document.body.setAttribute("data-emoji-thread", "1");
     else document.body.removeAttribute("data-emoji-thread");
     return () => document.body.removeAttribute("data-emoji-thread");
-  }, [active, narrow, selected]);
+  }, [mobileThreadOpen]);
   const unread = peers.reduce((sum, peer) => sum + Number(peer.unread), 0);
   useEffect(() => {
     onUnread(unread);
@@ -446,7 +446,7 @@ export function StudentChats({
     <>
       <section
         className="student-chats"
-        data-thread-open={Boolean(narrow && selected)}
+        data-thread-open={mobileThreadOpen}
         hidden={!active}
         aria-label="Эмодзи-чаты"
       >

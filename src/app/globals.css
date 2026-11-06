@@ -1324,3 +1324,5 @@ body[data-emoji-thread="1"] { overflow: hidden; }
 /* Incoming reactions do not cover validation feedback at the bottom. */
 .emoji-notification { top: 80px; bottom: auto; }
 @media (max-width:950px) { .emoji-notification { top: calc(108px + env(safe-area-inset-top,0px)); } }
+
+.student-chats[hidden] { display: none !important; }
