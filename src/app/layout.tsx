@@ -58,9 +58,9 @@ const themeInitScript = `
     var stored = localStorage.getItem('ml-theme');
     var theme = stored === 'dark' || stored === 'light'
       ? stored
-      : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    document.documentElement.classList.add('dark');
-    document.documentElement.style.colorScheme = 'dark';
+      : 'dark';
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    document.documentElement.style.colorScheme = theme;
   } catch (e) {}
 })();
 `;

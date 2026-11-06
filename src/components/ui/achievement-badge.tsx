@@ -44,7 +44,7 @@ export function AchievementBadge({
           draggable={false}
         />
       </div>
-      <span className="min-w-0 text-sm font-medium text-[#e5dac3] [overflow-wrap:anywhere]">
+      <span className="min-w-0 text-sm font-medium text-foreground [overflow-wrap:anywhere]">
         {title}
       </span>
     </div>

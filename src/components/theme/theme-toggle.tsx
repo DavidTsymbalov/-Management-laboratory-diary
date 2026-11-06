@@ -16,7 +16,7 @@ export function ThemeToggle() {
       type="button"
       onClick={toggleTheme}
       className={cn(
-        "inline-flex h-9 w-9 items-center justify-center transition",
+        "inline-flex h-11 w-11 items-center justify-center transition",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40",
         onHome
           ? "text-[var(--uc-muted)] hover:bg-white/10 hover:text-[var(--uc-cream)]"

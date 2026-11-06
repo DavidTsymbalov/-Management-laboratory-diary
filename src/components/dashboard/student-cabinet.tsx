@@ -17,6 +17,7 @@ import { pixelNavigate } from "@/lib/pixel-nav";
 export function StudentCabinet() {
   const router = useRouter();
   const [data, setData] = useState<AppData | null>(null);
+  const [hasAdminAccess, setHasAdminAccess] = useState(false);
   const [studentId, setStudentId] = useState<string | null>(null);
   const [standing, setStanding] = useState<{ rank: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -27,10 +28,10 @@ export function StudentCabinet() {
       try {
         const role = await getCloudRole();
         if (!active) return;
-        if (role?.role !== "student") { router.replace("/student/"); return; }
+        if (role?.role !== "student" && role?.role !== "admin") { router.replace("/student/"); return; }
         const [loaded, rank] = await Promise.all([loadCloudData(), getCloudRank()]);
         if (active) {
-          setData(loaded); setStudentId(role.id); setStanding(rank); setError(null);
+          setData(loaded); setHasAdminAccess(role.role==="admin"); setStudentId(role.id); setStanding(rank); setError(null);
         }
       } catch (error) { if (active) setError(cloudError(error)); }
     }
@@ -70,6 +71,7 @@ export function StudentCabinet() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {hasAdminAccess && <Button href="/admin/dashboard/" variant="secondary" size="sm">Управление классом</Button>}
           <Button
             type="button"
             variant="ghost"
@@ -103,7 +105,7 @@ export function StudentCabinet() {
           <p className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Место в классе
           </p>
-          <p className="mt-3 font-display text-5xl font-bold tabular-nums tracking-tight text-[#e5dac3]">
+          <p className="mt-3 font-display text-5xl font-bold tabular-nums tracking-tight text-foreground">
             №{rank ?? "—"}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">

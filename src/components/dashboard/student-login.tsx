@@ -22,7 +22,7 @@ export function StudentLogin() {
     let active = true;
     void getCloudRole().then((role) => {
       if (!active) return;
-      if (role?.role === "student") router.replace("/student/dashboard/");
+      if (role?.role === "student" || role?.role === "admin") router.replace("/student/dashboard/");
       else setReady(true);
     }).catch((error) => {
       if (active) { setError(cloudError(error)); setReady(true); }

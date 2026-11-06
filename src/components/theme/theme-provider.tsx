@@ -25,6 +25,7 @@ function applyTheme(theme: Theme) {
   const root = document.documentElement;
   root.classList.toggle("dark", theme === "dark");
   root.style.colorScheme = theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content",theme==="dark"?"#080a0d":"#ffffff");
 }
 
 function readDomTheme(): Theme {
@@ -38,12 +39,11 @@ function readTheme(): Theme {
   } catch {
     /* ignore */
   }
-  if (window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
   return readDomTheme();
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("light");
+  const [theme, setThemeState] = useState<Theme>("dark");
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

@@ -5,11 +5,11 @@ import { cn } from "@/lib/cn";
 
 const variants = {
   primary:
-    "border border-[#e5dac3]/60 bg-transparent text-[#e5dac3] hover:bg-[#e5dac3]/10",
+    "border border-foreground/60 bg-transparent text-foreground hover:bg-foreground/10",
   secondary:
-    "border border-[#e5dac3]/35 bg-surface text-[#e5dac3] hover:bg-accent-soft",
+    "border border-foreground/35 bg-surface text-foreground hover:bg-accent-soft",
   /** Только текст — scramble вместо подчёркивания */
-  ghost: "btn-text bg-transparent text-[#e5dac3] hover:bg-transparent",
+  ghost: "btn-text bg-transparent text-foreground hover:bg-transparent",
 } as const;
 
 const sizes = {

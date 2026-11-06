@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { ScrambleText } from "@/components/motion/scramble-text";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { cn } from "@/lib/cn";
 import { isStudentLoggedIn, isTeacherLoggedIn } from "@/lib/session";
 
 const baseLinks = [
   { key: "student", base: "/student/", label: "Ученик" },
   { key: "teacher", base: "/teacher/", label: "Учитель" },
+  { key: "admin", base: "/admin/", label: "Администратор" },
 ] as const;
 
 export function SiteHeader() {
@@ -18,6 +20,7 @@ export function SiteHeader() {
   const [hrefs, setHrefs] = useState({
     student: "/student/",
     teacher: "/teacher/",
+    admin: "/admin/",
   });
 
   useEffect(() => {
@@ -25,6 +28,7 @@ export function SiteHeader() {
       setHrefs({
         student: isStudentLoggedIn() ? "/student/dashboard/" : "/student/",
         teacher: isTeacherLoggedIn() ? "/teacher/dashboard/" : "/teacher/",
+        admin: "/admin/",
       });
     };
     sync();
@@ -59,7 +63,7 @@ export function SiteHeader() {
         </Link>
 
         <nav
-          className="col-span-2 grid w-full grid-cols-2 items-center gap-2 sm:col-span-1 sm:flex sm:justify-end"
+          className="col-span-2 grid w-full grid-cols-[1fr_1fr_1.5fr_auto] items-center gap-2 sm:col-span-1 sm:flex sm:justify-end"
           aria-label="Навигация"
         >
           {baseLinks.map((link, index) => {
@@ -91,6 +95,7 @@ export function SiteHeader() {
               </Link>
             );
           })}
+          <ThemeToggle />
         </nav>
       </div>
     </header>

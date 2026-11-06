@@ -6,19 +6,39 @@ import vm from "node:vm";
 import ts from "typescript";
 
 function compile(path) {
-  return ts.transpileModule(readFileSync(new URL(path, import.meta.url), "utf8"), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
-  }).outputText;
+  return ts.transpileModule(
+    readFileSync(new URL(path, import.meta.url), "utf8"),
+    {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+      },
+    },
+  ).outputText;
 }
 
 function functionHandler(admin) {
   let handler;
   const context = {
-    exports: {}, require: () => ({ createClient: () => admin }), crypto: webcrypto,
-    TextEncoder, Request, Response, console: { error() {} },
-    Deno: { env: { get: () => "test-only" }, serve: (fn) => { handler = fn; } },
+    exports: {},
+    require: () => ({ createClient: () => admin }),
+    crypto: webcrypto,
+    TextEncoder,
+    TextDecoder,
+    Request,
+    Response,
+    console: { error() {} },
+    Deno: {
+      env: { get: () => "test-only" },
+      serve: (fn) => {
+        handler = fn;
+      },
+    },
   };
-  vm.runInNewContext(compile("../supabase/functions/manage-students/index.ts"), context);
+  vm.runInNewContext(
+    compile("../supabase/functions/manage-students/index.ts"),
+    context,
+  );
   return { handler, context };
 }
 
@@ -37,27 +57,55 @@ test("student names normalize consistently in browser and server logins", async 
   assert.equal(await browser.exports.teacherEmail("  TEACHER  "), teacher);
   assert.notEqual(await browser.exports.studentEmail("teacher"), teacher);
   assert.ok(teacher.split("@")[0].length <= 64);
-  assert.ok(readFileSync(new URL("../supabase/setup-teacher.sql", import.meta.url), "utf8").includes(teacher));
+  assert.ok(
+    readFileSync(
+      new URL("../supabase/setup-teacher.sql", import.meta.url),
+      "utf8",
+    ).includes(teacher),
+  );
 });
 
 test("admin function rejects absent/forged tokens and authenticated non-teachers", async () => {
   let adminCalls = 0;
   const admin = {
-    auth: { getUser: async (token) => token === "valid" ? { data: { user: { id: "student" } }, error: null } :
-      { data: { user: null }, error: new Error("bad jwt") },
-      admin: { deleteUser: () => { adminCalls++; } } },
-    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }),
+    auth: {
+      getUser: async (token) =>
+        token === "valid"
+          ? { data: { user: { id: "student" } }, error: null }
+          : { data: { user: null }, error: new Error("bad jwt") },
+      admin: {
+        deleteUser: () => {
+          adminCalls++;
+        },
+      },
+    },
+    from: () => ({
+      select: () => ({
+        eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }),
+      }),
+    }),
   };
   const { handler } = functionHandler(admin);
-  for (const [token, status] of [[null, 401], ["forged", 401], ["valid", 403]]) {
-    const response = await handler(new Request("https://example.test", {
-      method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: JSON.stringify({ action: "delete", id: "teacher" }),
-    }));
+  for (const [token, status] of [
+    [null, 401],
+    ["forged", 401],
+    ["valid", 403],
+  ]) {
+    const response = await handler(
+      new Request("https://example.test", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: JSON.stringify({ action: "delete", id: "teacher" }),
+      }),
+    );
     assert.equal(response.status, status);
   }
   assert.equal(adminCalls, 0);
-  assert.equal((await handler(new Request("https://example.test", { method: "OPTIONS" }))).status, 200);
+  assert.equal(
+    (await handler(new Request("https://example.test", { method: "OPTIONS" })))
+      .status,
+    200,
+  );
 });
 
 test("admin function rolls back a new auth account when saving its profile fails", async () => {
@@ -67,25 +115,153 @@ test("admin function rolls back a new auth account when saving its profile fails
     auth: {
       getUser: async () => ({ data: { user: { id: "teacher" } }, error: null }),
       admin: {
-        createUser: async () => { creates++; return { data: { user: { id: "new-student" } }, error: null }; },
-        deleteUser: async (id) => { deleted.push(id); return { error: null }; },
+        createUser: async () => {
+          creates++;
+          return { data: { user: { id: "new-student" } }, error: null };
+        },
+        deleteUser: async (id) => {
+          deleted.push(id);
+          return { error: null };
+        },
       },
     },
-    from: (table) => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: table === "teachers" ? { user_id: "teacher" } : null, error: null }) }) }) }),
+    from: (table) => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({
+            data: table === "teachers" ? { user_id: "teacher" } : null,
+            error: null,
+          }),
+        }),
+      }),
+    }),
     rpc: async () => ({ error: { message: "invalid imported achievement" } }),
   };
   const { handler } = functionHandler(admin);
-  const response = await handler(new Request("https://example.test", {
-    method: "POST", headers: { Authorization: "Bearer valid" },
-    body: JSON.stringify({ action: "create", students: [
-      { name: "Иванов Иван", password: "strong-password" },
-      { name: "Петров Пётр", password: "1111" },
-    ] }),
-  }));
+  const response = await handler(
+    new Request("https://example.test", {
+      method: "POST",
+      headers: { Authorization: "Bearer valid" },
+      body: JSON.stringify({
+        action: "create",
+        students: [
+          { name: "Иванов Иван", password: "strong-password" },
+          { name: "Петров Пётр", password: "1111" },
+        ],
+      }),
+    }),
+  );
   assert.equal(response.status, 200);
   const result = await response.json();
   assert.equal(result.created.length, 0);
   assert.equal(result.errors.length, 2);
   assert.equal(creates, 1);
   assert.deepEqual(deleted, ["new-student"]);
+});
+
+test("credential envelopes decrypt only on server, are randomized, and reject tampering", async () => {
+  const { context } = functionHandler({});
+  const password = "not-a-real-password-123";
+  const encrypted = await context.encryptPassword(password);
+  const second = await context.encryptPassword(password);
+  assert.notEqual(encrypted, second);
+  assert.ok(!encrypted.includes(password));
+  assert.equal(await context.decryptPassword(encrypted), password);
+  const tampered =
+    encrypted.slice(0, -2) + (encrypted.endsWith("00") ? "01" : "00");
+  await assert.rejects(context.decryptPassword(tampered));
+});
+
+test("administrator cannot view or reset passwords and member operations delegate quota enforcement to the database", async () => {
+  const calls = [];
+  const admin = {
+    auth: {
+      getUser: async () => ({
+        data: { user: { id: "student-admin" } },
+        error: null,
+      }),
+      admin: {
+        updateUserById: async () => {
+          throw new Error("must not run");
+        },
+      },
+    },
+    from: (table) => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({
+            data:
+              table === "student_administrators"
+                ? { student_id: "student-admin" }
+                : null,
+            error: null,
+          }),
+        }),
+      }),
+    }),
+    rpc: async (name, args) => {
+      calls.push({ name, args });
+      return { error: { message: "Превышен дневной лимит." } };
+    },
+  };
+  const { handler } = functionHandler(admin);
+  for (const action of ["view_password", "password"]) {
+    const response = await handler(
+      new Request("https://example.test", {
+        method: "POST",
+        headers: { Authorization: "Bearer valid" },
+        body: JSON.stringify({ action, id: "pupil", password: "not-real-123" }),
+      }),
+    );
+    assert.equal(response.status, 403);
+  }
+  const response = await handler(
+    new Request("https://example.test", {
+      method: "POST",
+      headers: { Authorization: "Bearer valid" },
+      body: JSON.stringify({ action: "delete", id: "pupil", actor: "teacher" }),
+    }),
+  );
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error, /Превышен/);
+  assert.equal(calls[0].name, "staff_delete_student");
+  assert.equal(calls[0].args.actor, "student-admin");
+});
+
+test("only verified teacher can request a saved password and response is never cacheable", async () => {
+  const seed = functionHandler({});
+  const encrypted = await seed.context.encryptPassword(
+    "not-a-real-password-123",
+  );
+  const admin = {
+    auth: {
+      getUser: async () => ({ data: { user: { id: "teacher" } }, error: null }),
+    },
+    from: (table) => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({
+            data:
+              table === "teachers"
+                ? { user_id: "teacher" }
+                : table === "student_credentials"
+                  ? { ciphertext: encrypted }
+                  : null,
+            error: null,
+          }),
+        }),
+      }),
+    }),
+  };
+  const { handler } = functionHandler(admin);
+  const response = await handler(
+    new Request("https://example.test", {
+      method: "POST",
+      headers: { Authorization: "Bearer valid" },
+      body: JSON.stringify({ action: "view_password", id: "pupil" }),
+    }),
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
+  assert.equal((await response.json()).password, "not-a-real-password-123");
 });

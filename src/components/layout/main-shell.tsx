@@ -13,7 +13,7 @@ export function MainShell({ children }: { children: ReactNode }) {
       className={cn(
         // без z-index на главной: иначе fixed-слоган «запирается» под пикселями
         "main-shell relative min-w-0 flex-1",
-        !onHome && "z-10 pt-20 pb-10 sm:pt-24 sm:pb-14",
+        !onHome && "z-10 pt-32 pb-10 sm:pt-24 sm:pb-14",
       )}
     >
       {children}

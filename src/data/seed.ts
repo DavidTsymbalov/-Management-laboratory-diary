@@ -13,6 +13,7 @@ export type Student = {
   /** Пароль для входа в личный кабинет */
   password: string;
   nuts: number;
+  createdAt?: string;
   achievements: Achievement[];
 };
 
