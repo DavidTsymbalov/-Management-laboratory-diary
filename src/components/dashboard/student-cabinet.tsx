@@ -17,6 +17,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { AchievementBadge } from "@/components/ui/achievement-badge";
+import { HomeworkBoard } from "@/components/dashboard/homework-board";
 import { StudentChats } from "@/components/social/student-chats";
 import type { AppData } from "@/lib/store";
 import {
@@ -168,6 +169,7 @@ export function StudentCabinet() {
             hidden={tab !== "diary"}
             aria-label="Мои результаты"
           >
+            <HomeworkBoard />
             <dl className="pupil-results">
               <div className="pupil-balance">
                 <dt>Мои баллы</dt>

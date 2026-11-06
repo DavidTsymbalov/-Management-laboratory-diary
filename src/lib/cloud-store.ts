@@ -245,7 +245,11 @@ export type ActivityEntry = {
     | "achievement"
     | "admin_grant"
     | "admin_revoke"
-    | "admin_limits";
+    | "admin_limits"
+    | "homework_create"
+    | "homework_edit"
+    | "homework_archive"
+    | "homework_restore";
   student_id: string | null;
   student_name: string;
   amount: number | null;

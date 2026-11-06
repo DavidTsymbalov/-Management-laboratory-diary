@@ -52,6 +52,25 @@ export async function sendEmoji(
     throw new Error("Отправка не подтверждена. Повторите попытку.");
   return { ...item, id: Number(item.id) };
 }
+export async function sendTextMessage(
+  peer: string,
+  body: string,
+  nonce: string,
+): Promise<EmojiMessage> {
+  const text = body.trim();
+  if (!text || Array.from(text).length > 2000)
+    throw new Error("Сообщение должно содержать от 1 до 2000 символов.");
+  const { data, error } = await getSupabase().rpc("send_student_message", {
+    peer_id: peer,
+    message_body: text,
+    request_id: nonce,
+  });
+  if (error) throw error;
+  const item = Array.isArray(data) ? data[0] : data;
+  if (!item?.id)
+    throw new Error("Отправка не подтверждена. Повторите попытку.");
+  return { ...item, id: Number(item.id) };
+}
 export async function markEmojiRead(peer: string, through: number) {
   const { error } = await getSupabase().rpc("mark_student_emoji_read", {
     peer_id: peer,

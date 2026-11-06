@@ -19,7 +19,8 @@ export type EmojiMessage = {
   id: number;
   sender_id: string;
   recipient_id: string;
-  emoji: ReactionEmoji;
+  emoji: ReactionEmoji | null;
+  body: string | null;
   client_nonce: string;
   sent_at: string;
 };
@@ -27,6 +28,7 @@ export type EmojiPeer = {
   id: string;
   name: string;
   last_emoji: ReactionEmoji | null;
+  last_body?: string | null;
   last_message_id: number | null;
   last_sent_at: string | null;
   unread: number;

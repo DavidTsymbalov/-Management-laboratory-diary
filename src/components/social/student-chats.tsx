@@ -10,6 +10,7 @@ import {
   useState,
   useSyncExternalStore,
   type MouseEvent,
+  type FormEvent,
 } from "react";
 import {
   ArrowLeft,
@@ -18,6 +19,8 @@ import {
   MessageCircle,
   Search,
   ShieldOff,
+  Send,
+  Smile,
   Sparkles,
   Volume2,
   VolumeX,
@@ -28,6 +31,7 @@ import {
   loadEmojiThread,
   markEmojiRead,
   sendEmoji,
+  sendTextMessage,
 } from "@/lib/emoji-chat";
 import {
   EMOJI_REACTIONS,
@@ -88,7 +92,8 @@ function ChatAvatar({ peer, shared }: { peer: EmojiPeer; shared: boolean }) {
 type Preferences = { sound: boolean; effects: boolean };
 type PendingSend = {
   peer: string;
-  emoji: ReactionEmoji;
+  emoji: ReactionEmoji | null;
+  body: string | null;
   nonce: string;
   failed: boolean;
 };
@@ -114,6 +119,9 @@ export function StudentChats({
   });
   const [peerId, setPeerId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [reactionsOpen, setReactionsOpen] = useState(false);
+  const messageInput = useRef<HTMLTextAreaElement>(null);
   const [threads, setThreads] = useState<Record<string, EmojiMessage[]>>({});
   const [loadingPeer, setLoadingPeer] = useState<string | null>(null);
   const [older, setOlder] = useState(false);
@@ -126,7 +134,8 @@ export function StudentChats({
   const [notice, setNotice] = useState<{
     peer: string;
     name: string;
-    emoji: ReactionEmoji;
+    emoji: ReactionEmoji | null;
+    body: string | null;
   } | null>(null);
   const [threadAttempt, setThreadAttempt] = useState(0);
   const [threadError, setThreadError] = useState(false);
@@ -212,7 +221,7 @@ export function StudentChats({
           );
         return next;
       });
-      if (active && peerId) {
+      if (active && peerId && !document.hidden) {
         const latest = messages
           .filter((message) => message.sender_id === peerId)
           .at(-1);
@@ -221,13 +230,14 @@ export function StudentChats({
       }
       const last = allowed.at(-1);
       if (!last) return;
-      react(last.emoji);
+      if (last.emoji) react(last.emoji);
       const sender = peers.find((peer) => peer.id === last.sender_id);
       if (!active || peerId !== last.sender_id)
         setNotice({
           peer: last.sender_id,
           name: sender?.name ?? "Одноклассник",
           emoji: last.emoji,
+          body: last.body,
         });
     },
     [active, peerId, react],
@@ -238,7 +248,37 @@ export function StudentChats({
   );
   const selected = peers.find((peer) => peer.id === peerId) ?? null;
   const messages = peerId ? (threads[peerId] ?? []) : [];
+  const draft = peerId ? (drafts[peerId] ?? "") : "";
+  useLayoutEffect(() => {
+    const input = messageInput.current;
+    if (!input) return;
+    input.style.height = "auto";
+    input.style.height = `${Math.min(120, input.scrollHeight)}px`;
+  }, [draft, peerId, active]);
   const mobileThreadOpen = active && narrow && Boolean(selected);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!mobileThreadOpen || !viewport) return;
+    function resize() {
+      if (!viewport) return;
+      const bottom = Math.max(
+        0,
+        window.innerHeight - viewport.height - viewport.offsetTop,
+      );
+      document.documentElement.style.setProperty(
+        "--chat-keyboard-bottom",
+        `${bottom}px`,
+      );
+    }
+    resize();
+    viewport.addEventListener("resize", resize);
+    viewport.addEventListener("scroll", resize);
+    return () => {
+      viewport.removeEventListener("resize", resize);
+      viewport.removeEventListener("scroll", resize);
+      document.documentElement.style.removeProperty("--chat-keyboard-bottom");
+    };
+  }, [mobileThreadOpen]);
   useEffect(() => {
     if (mobileThreadOpen) document.body.setAttribute("data-emoji-thread", "1");
     else document.body.removeAttribute("data-emoji-thread");
@@ -336,6 +376,7 @@ export function StudentChats({
     nearBottom.current = true;
     setFeedback(null);
     setNotice(null);
+    setReactionsOpen(false);
     onOpen();
     startTransition(() => {
       addTransitionType("chat-open");
@@ -351,11 +392,21 @@ export function StudentChats({
     });
   }
   async function send(
-    emoji: ReactionEmoji,
+    emoji: ReactionEmoji | null,
     event?: MouseEvent<HTMLButtonElement>,
     retry?: PendingSend,
   ) {
     if (!selected || selected.blocked || locked.current) return;
+    const body = emoji ? null : (retry?.body ?? draft.trim());
+    const originalDraft = draft;
+    if (!emoji && (!body || Array.from(body).length > 2000)) {
+      setFeedback({
+        type: "error",
+        message: "Сообщение должно содержать от 1 до 2000 символов.",
+      });
+      messageInput.current?.focus();
+      return;
+    }
     unlockEmojiAudio();
     locked.current = true;
     setSending(true);
@@ -366,9 +417,11 @@ export function StudentChats({
     const point = element
       ? { x: element.left + element.width / 2, y: element.top }
       : undefined;
-    setPending({ peer: target, emoji, nonce, failed: false });
+    setPending({ peer: target, emoji, body, nonce, failed: false });
     try {
-      const sent = await sendEmoji(target, emoji, nonce);
+      const sent = emoji
+        ? await sendEmoji(target, emoji, nonce)
+        : await sendTextMessage(target, body!, nonce);
       if (!live.current) return;
       setThreads((current) => ({
         ...current,
@@ -376,17 +429,34 @@ export function StudentChats({
       }));
       setPending(null);
       nearBottom.current = true;
-      react(emoji, point);
+      if (emoji) react(emoji, point);
+      else if (originalDraft.trim() === body)
+        setDrafts((current) =>
+          current[target] === originalDraft
+            ? { ...current, [target]: "" }
+            : current,
+        );
       void refresh();
     } catch (reason) {
       if (live.current) {
-        setPending({ peer: target, emoji, nonce, failed: true });
+        setPending({ peer: target, emoji, body, nonce, failed: true });
         setFeedback({ type: "error", message: cloudError(reason) });
       }
     } finally {
       locked.current = false;
       if (live.current) setSending(false);
     }
+  }
+  function submitText(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const retry =
+      pending?.failed &&
+      pending.peer === peerId &&
+      !pending.emoji &&
+      pending.body === draft.trim()
+        ? pending
+        : undefined;
+    void send(null, undefined, retry);
   }
   async function loadOlder() {
     if (!peerId || older || !messages.length) return;
@@ -448,7 +518,7 @@ export function StudentChats({
         className="student-chats"
         data-thread-open={mobileThreadOpen}
         hidden={!active}
-        aria-label="Эмодзи-чаты"
+        aria-label="Чаты с одноклассниками"
       >
         <div className="chat-toolbar">
           <h2>Чаты</h2>
@@ -540,10 +610,12 @@ export function StudentChats({
                             <strong>{peer.name}</strong>
                             <small>
                               {peer.blocked
-                                ? "Вы заблокировали эмодзи"
-                                : peer.last_emoji
-                                  ? `${peer.last_emoji} ${reactionName(peer.last_emoji)}`
-                                  : "Отправить эмодзи"}
+                                ? "Чат заблокирован"
+                                : peer.last_body
+                                  ? peer.last_body
+                                  : peer.last_emoji
+                                    ? `${peer.last_emoji} ${reactionName(peer.last_emoji)}`
+                                    : "Написать сообщение"}
                             </small>
                           </span>
                           {peer.unread > 0 && (
@@ -608,7 +680,7 @@ export function StudentChats({
                           <Ban size={16} aria-hidden="true" />
                           {selected.blocked
                             ? "Разблокировать"
-                            : "Заблокировать эмодзи"}
+                            : "Заблокировать чат"}
                         </button>
                       </div>
                     </details>
@@ -649,10 +721,13 @@ export function StudentChats({
                     ) : !messages.length ? (
                       <div className="chat-thread-empty">
                         <span aria-hidden="true">👋</span>
-                        <p>Отправь первый эмодзи</p>
+                        <p>Напиши первое сообщение</p>
                       </div>
                     ) : (
-                      <ol className="chat-messages" aria-label="История эмодзи">
+                      <ol
+                        className="chat-messages"
+                        aria-label="История сообщений"
+                      >
                         {messages.map((message, index) => {
                           const previous = messages[index - 1];
                           const day = date.format(new Date(message.sent_at));
@@ -666,13 +741,19 @@ export function StudentChats({
                                 className="chat-message"
                                 data-mine={message.sender_id === studentId}
                               >
-                                <span
-                                  className="chat-message-emoji"
-                                  role="img"
-                                  aria-label={reactionName(message.emoji)}
-                                >
-                                  {message.emoji}
-                                </span>
+                                {message.emoji ? (
+                                  <span
+                                    className="chat-message-emoji"
+                                    role="img"
+                                    aria-label={reactionName(message.emoji)}
+                                  >
+                                    {message.emoji}
+                                  </span>
+                                ) : (
+                                  <p className="chat-message-text" dir="auto">
+                                    {message.body}
+                                  </p>
+                                )}
                                 <time dateTime={message.sent_at}>
                                   {time.format(new Date(message.sent_at))}
                                   {message.sender_id === studentId && (
@@ -687,7 +768,9 @@ export function StudentChats({
                     )}
                     {pending?.peer === selected.id && (
                       <div className="chat-pending" role="status">
-                        <span aria-hidden="true">{pending.emoji}</span>
+                        <span className="chat-pending-preview">
+                          {pending.emoji ?? pending.body}
+                        </span>
                         {pending.failed ? (
                           <button
                             type="button"
@@ -705,7 +788,7 @@ export function StudentChats({
                   </div>
                   {selected.blocked ? (
                     <div className="chat-blocked">
-                      <p>Вы заблокировали эмодзи от этого ученика.</p>
+                      <p>Вы заблокировали переписку с этим учеником.</p>
                       <button
                         type="button"
                         className="teacher-button"
@@ -716,22 +799,89 @@ export function StudentChats({
                       </button>
                     </div>
                   ) : (
-                    <div
-                      className="chat-composer"
-                      role="group"
-                      aria-label="Отправить эмодзи"
-                    >
-                      {EMOJI_REACTIONS.map((reaction) => (
-                        <button
-                          key={reaction.emoji}
-                          type="button"
-                          disabled={sending}
-                          aria-label={`Отправить: ${reaction.name}`}
-                          onClick={(event) => void send(reaction.emoji, event)}
+                    <div className="chat-compose-area">
+                      {reactionsOpen && (
+                        <div
+                          className="chat-composer"
+                          id={`reactions-${studentId}`}
+                          role="group"
+                          aria-label="Отправить эмодзи"
                         >
-                          <span aria-hidden="true">{reaction.emoji}</span>
+                          {EMOJI_REACTIONS.map((reaction) => (
+                            <button
+                              key={reaction.emoji}
+                              type="button"
+                              disabled={sending}
+                              aria-label={`Отправить: ${reaction.name}`}
+                              onClick={(event) =>
+                                void send(reaction.emoji, event)
+                              }
+                            >
+                              <span aria-hidden="true">{reaction.emoji}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <form
+                        className="chat-text-composer"
+                        onSubmit={submitText}
+                      >
+                        <button
+                          type="button"
+                          className="chat-icon-button"
+                          aria-label="Показать эмодзи"
+                          aria-expanded={reactionsOpen}
+                          aria-controls={
+                            reactionsOpen ? `reactions-${studentId}` : undefined
+                          }
+                          onClick={() => {
+                            setReactionsOpen((value) => !value);
+                            setFeedback(null);
+                          }}
+                        >
+                          <Smile size={21} aria-hidden="true" />
                         </button>
-                      ))}
+                        <textarea
+                          key={selected.id}
+                          ref={messageInput}
+                          rows={1}
+                          aria-label={`Сообщение для ${selected.name}`}
+                          placeholder="Сообщение…"
+                          value={draft}
+                          maxLength={4000}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setDrafts((current) => ({
+                              ...current,
+                              [selected.id]: value,
+                            }));
+                            setFeedback(null);
+                          }}
+                          onKeyDown={(event) => {
+                            if (
+                              !narrow &&
+                              event.key === "Enter" &&
+                              !event.shiftKey &&
+                              !event.nativeEvent.isComposing
+                            ) {
+                              event.preventDefault();
+                              event.currentTarget.form?.requestSubmit();
+                            }
+                          }}
+                        />
+                        <button
+                          type="submit"
+                          className="chat-send-button"
+                          disabled={sending}
+                          aria-label={
+                            sending
+                              ? "Отправляем сообщение"
+                              : "Отправить сообщение"
+                          }
+                        >
+                          <Send size={19} aria-hidden="true" />
+                        </button>
+                      </form>
                     </div>
                   )}
                 </div>
@@ -751,10 +901,14 @@ export function StudentChats({
       {notice && (
         <div className="emoji-notification" role="status">
           <button type="button" onClick={() => openPeer(notice.peer)}>
-            <span aria-hidden="true">{notice.emoji}</span>
+            <span aria-hidden="true">
+              {notice.emoji ?? <MessageCircle size={24} />}
+            </span>
             <span>
               <strong>{notice.name}</strong>
-              <small>Открыть чат</small>
+              <small className="chat-notice-preview">
+                {notice.body ?? "Открыть чат"}
+              </small>
             </span>
           </button>
           <button

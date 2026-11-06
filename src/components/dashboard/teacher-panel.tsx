@@ -15,6 +15,7 @@ import {
   BarChart3,
   Check,
   ClipboardList,
+  BookOpen,
   Copy,
   LogOut,
   Plus,
@@ -46,14 +47,22 @@ import { cloudError } from "@/lib/supabase";
 import { StatsGrid } from "@/components/dashboard/stats-grid";
 import { TeacherCharts } from "@/components/dashboard/teacher-charts";
 import { AdministratorSettings } from "@/components/dashboard/administrator-settings";
+import { HomeworkBoard } from "@/components/dashboard/homework-board";
 import { ActivityList } from "@/components/dashboard/activity-list";
 import { StudentAccess } from "@/components/dashboard/student-access";
 import { FeedbackToast, type Feedback } from "@/components/ui/feedback-toast";
 import Link from "next/link";
 
-type Tab = "overview" | "students" | "awards" | "administrators" | "activity";
+type Tab =
+  | "homework"
+  | "overview"
+  | "students"
+  | "awards"
+  | "administrators"
+  | "activity";
 const destinations = [
   { id: "overview", label: "Обзор", icon: BarChart3 },
+  { id: "homework", label: "Домашние задания", icon: BookOpen },
   { id: "students", label: "Ученики", icon: Users },
   { id: "awards", label: "Награды", icon: Award },
   { id: "administrators", label: "Администраторы", icon: ShieldCheck },
@@ -428,34 +437,36 @@ export function TeacherPanel({
             ))}
         </nav>
         <div className="teacher-content">
-          <div className="teacher-page-heading">
-            <h2>{pageTitle}</h2>
-            {tab === "students" && (
-              <button
-                type="button"
-                className="teacher-button primary"
-                disabled={busy}
-                onClick={() => {
-                  setShowAdd((value) => !value);
-                  setFeedback(null);
-                }}
-              >
-                <Plus size={18} aria-hidden="true" />
-                {showAdd ? "Закрыть форму" : "Добавить учеников"}
-              </button>
-            )}
-            {tab === "administrators" && adminEditor === null && (
-              <button
-                type="button"
-                className="teacher-button primary"
-                disabled={busy || !extras.available}
-                onClick={() => setAdminEditor("")}
-              >
-                <Plus size={18} aria-hidden="true" />
-                Назначить
-              </button>
-            )}
-          </div>
+          {tab !== "homework" && (
+            <div className="teacher-page-heading">
+              <h2>{pageTitle}</h2>
+              {tab === "students" && (
+                <button
+                  type="button"
+                  className="teacher-button primary"
+                  disabled={busy}
+                  onClick={() => {
+                    setShowAdd((value) => !value);
+                    setFeedback(null);
+                  }}
+                >
+                  <Plus size={18} aria-hidden="true" />
+                  {showAdd ? "Закрыть форму" : "Добавить учеников"}
+                </button>
+              )}
+              {tab === "administrators" && adminEditor === null && (
+                <button
+                  type="button"
+                  className="teacher-button primary"
+                  disabled={busy || !extras.available}
+                  onClick={() => setAdminEditor("")}
+                >
+                  <Plus size={18} aria-hidden="true" />
+                  Назначить
+                </button>
+              )}
+            </div>
+          )}
           {loadError && (
             <p className="teacher-inline-error" role="status">
               Не удалось обновить данные. Показана последняя версия.{" "}
@@ -1135,6 +1146,7 @@ export function TeacherPanel({
                   )}
                 </>
               )}
+              {tab === "homework" && <HomeworkBoard editable />}
               {tab === "activity" && (
                 <section className="teacher-section">
                   <div className="teacher-section-heading">
