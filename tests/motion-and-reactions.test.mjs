@@ -39,7 +39,7 @@ test("theme grid covers portrait, landscape and desktop with exact square cells 
     assert.equal(Math.max(...ranks), ranks.length - 1);
   }
 });
-test("emoji allowlist, message reconciliation and sound files agree and contain bounded non-clipping PCM", () => {
+test("emoji allowlist and message reconciliation preserve order without mutating history", () => {
   assert.equal(EMOJI_REACTIONS.length, 8);
   assert.equal(isReactionEmoji("💩"), true);
   assert.equal(isReactionEmoji("<img>"), false);
@@ -59,21 +59,102 @@ test("emoji allowlist, message reconciliation and sound files agree and contain 
     previous.map((message) => message.id),
     [2, 1],
   );
-  for (const reaction of EMOJI_REACTIONS) {
-    const bytes = readFileSync(
-      new URL(`../public/sounds/emoji-${reaction.sound}.wav`, import.meta.url),
-    );
-    assert.equal(bytes.toString("ascii", 0, 4), "RIFF");
-    assert.equal(bytes.toString("ascii", 8, 12), "WAVE");
-    assert.equal(bytes.readUInt16LE(22), 1);
-    assert.equal(bytes.readUInt16LE(34), 16);
-    const duration = bytes.readUInt32LE(40) / (bytes.readUInt32LE(24) * 2);
-    assert.ok(duration >= 0.15 && duration <= 0.45);
-    let peak = 0;
-    for (let offset = 44; offset < bytes.length; offset += 2)
-      peak = Math.max(peak, Math.abs(bytes.readInt16LE(offset)));
-    assert.ok(peak > 1000 && peak < 16384);
-    assert.equal(bytes.readInt16LE(44), 0);
-    assert.equal(bytes.readInt16LE(bytes.length - 2), 0);
+});
+
+const { emojiBurstLayout, EMOJI_BURST_DURATION_MS, EMOJI_BURST_LIFETIME_MS } =
+  module("../src/lib/emoji-burst-layout.ts");
+const { ReceivedEmojiPlayback } = module("../src/lib/emoji-playback.ts");
+test("large, slow emoji reach all screen regions on phone, landscape and desktop", () => {
+  for (const [width, height] of [
+    [320, 568],
+    [390, 844],
+    [844, 390],
+    [1440, 900],
+    [2560, 1440],
+  ]) {
+    const origin = { x: width * 0.85, y: height * 0.9 };
+    const particles = emojiBurstLayout(width, height, origin);
+    assert.equal(particles.length, 48);
+    const targets = particles.map((p) => ({
+      x: origin.x + p.x,
+      y: origin.y + p.y,
+    }));
+    assert.ok(Math.min(...targets.map((p) => p.x)) < width * 0.3);
+    assert.ok(Math.max(...targets.map((p) => p.x)) > width * 0.7);
+    assert.ok(Math.min(...targets.map((p) => p.y)) < height * 0.3);
+    assert.ok(Math.max(...targets.map((p) => p.y)) > height * 0.7);
+    for (const [index, p] of particles.entries()) {
+      assert.ok(p.size >= 48 && p.size <= 96);
+      assert.ok(
+        targets[index].x >= p.size / 2 &&
+          targets[index].x <= width - p.size / 2,
+      );
+      assert.ok(
+        targets[index].y >= p.size / 2 &&
+          targets[index].y <= height - p.size / 2,
+      );
+      assert.ok(EMOJI_BURST_DURATION_MS + p.delay < EMOJI_BURST_LIFETIME_MS);
+    }
   }
+  assert.ok(EMOJI_BURST_DURATION_MS >= 3500);
+});
+test("opening a conversation replays an unread reaction and absorbs arrivals during history fetch once", () => {
+  const player = new ReceivedEmojiPlayback();
+  const shown = [];
+  const show = (emoji) => {
+    shown.push(emoji);
+    return true;
+  };
+  player.begin("anna");
+  assert.equal(
+    player.buffer("anna", [
+      { id: 20, sender_id: "anna", emoji: "💩" },
+      { id: 21, sender_id: "anna", emoji: null, body: "Текст после эмодзи" },
+    ]),
+    true,
+  );
+  assert.equal(
+    player.buffer("bob", [{ id: 22, sender_id: "bob", emoji: "🔥" }]),
+    false,
+  );
+  const completed = player.finish("anna", {
+    id: 10,
+    sender_id: "anna",
+    emoji: "❤️",
+  });
+  assert.equal(completed.reaction.id, 20);
+  assert.equal(completed.through, 21);
+  assert.equal(player.play(completed.reaction, show), true);
+  assert.equal(player.play(completed.reaction, show), false);
+  assert.equal(
+    player.play({ id: 10, sender_id: "anna", emoji: "❤️" }, show),
+    false,
+  );
+  assert.equal(
+    player.play({ id: 22, sender_id: "bob", emoji: "🔥" }, show),
+    true,
+  );
+  assert.deepEqual(shown, ["💩", "🔥"]);
+  assert.equal(player.buffer("anna", []), false);
+});
+test("history replay skips read/text messages, cancellation and disabled effects consume no reaction", () => {
+  const player = new ReceivedEmojiPlayback();
+  player.begin("anna");
+  player.buffer("anna", [{ id: 2, sender_id: "anna", emoji: "💩" }]);
+  player.cancel("anna");
+  assert.equal(player.finish("anna", null).reaction, null);
+  player.begin("anna");
+  player.buffer("anna", [{ id: 3, sender_id: "anna", emoji: null }]);
+  assert.equal(player.finish("anna", null).reaction, null);
+  const unread = { id: 4, sender_id: "anna", emoji: "❤️" };
+  assert.equal(
+    player.play(unread, () => false),
+    false,
+  );
+  assert.equal(
+    player.play(unread, () => true),
+    true,
+  );
+  player.begin("anna");
+  assert.equal(player.finish("anna", null).reaction, null);
 });

@@ -1,12 +1,12 @@
 export const EMOJI_REACTIONS = [
-  { emoji: "💩", name: "Какашка", sound: "poop" },
-  { emoji: "❤️", name: "Сердце", sound: "heart" },
-  { emoji: "😂", name: "Смех", sound: "laugh" },
-  { emoji: "🔥", name: "Огонь", sound: "fire" },
-  { emoji: "👏", name: "Аплодисменты", sound: "clap" },
-  { emoji: "👻", name: "Привидение", sound: "ghost" },
-  { emoji: "🎉", name: "Праздник", sound: "party" },
-  { emoji: "⚡", name: "Молния", sound: "zap" },
+  { emoji: "💩", name: "Какашка" },
+  { emoji: "❤️", name: "Сердце" },
+  { emoji: "😂", name: "Смех" },
+  { emoji: "🔥", name: "Огонь" },
+  { emoji: "👏", name: "Аплодисменты" },
+  { emoji: "👻", name: "Привидение" },
+  { emoji: "🎉", name: "Праздник" },
+  { emoji: "⚡", name: "Молния" },
 ] as const;
 export type ReactionEmoji = (typeof EMOJI_REACTIONS)[number]["emoji"];
 export function isReactionEmoji(value: unknown): value is ReactionEmoji {

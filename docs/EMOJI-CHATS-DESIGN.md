@@ -7,17 +7,20 @@ The pupil diary becomes two clear destinations: results and emoji conversations.
 Desktop: own name and results above a quiet journal; conversations use a pupil
 list beside one thread. Phone: list → conversation with a visible back control,
 scrollable history and a reachable eight-emoji composer. No fabricated online
-indicators, no free-text messenger or upload controls. Existing avatars use initials.
+indicators, no upload controls. Text messages share the same conversation. Existing avatars use initials.
 
     pupil name                              account / theme
     Diary       Chats (unread)
     results                       peers | selected emoji thread
                                   peers | eight emoji actions
 
-The one playful moment is the received emoji: a short burst of 24 copies of the
-chosen emoji and a quiet original sound. Effects never intercept touch or focus.
+The playful moment is the received emoji: 48 large copies spread across the whole
+viewport over about four seconds. Effects use a body portal and never intercept touch or focus.
 No background confetti, page shaking, floating decorative icons or timed onboarding.
-Sounds, animation and chat blocking remain directly controllable by the recipient.
+Animation and chat blocking remain directly controllable by the recipient. Audio is removed.
+An unopened conversation retains unread reactions. Opening it plays the latest unread
+emoji once, including when it was received before login. Live reactions play only in
+the selected visible conversation. Read history does not replay.
 
 Motion map:
 - Entry routes keep the existing square page transition.
@@ -39,5 +42,4 @@ blocking and rate limits. Read positions are private to their owner.
 
 Review: avoid building an oversized generic messenger. Use the existing journal
 palette and the actual eight reactions. The selected conversation and its composer
-carry the interaction; the rest stays quiet. Sound assets are original generated
-PCM cues, not copied application binaries or recordings.
+carry the interaction; the rest stays quiet. No audio assets or audio initialization remain.

@@ -22,13 +22,12 @@ import {
   Send,
   Smile,
   Sparkles,
-  Volume2,
-  VolumeX,
   X,
 } from "lucide-react";
 import {
   blockEmojiPeer,
   loadEmojiThread,
+  loadUnreadReaction,
   markEmojiRead,
   sendEmoji,
   sendTextMessage,
@@ -41,11 +40,11 @@ import {
   type EmojiPeer,
   type ReactionEmoji,
 } from "@/lib/emoji-reactions";
+import { EMOJI_BURST_LIFETIME_MS } from "@/lib/emoji-burst-layout";
 import {
-  playEmojiAudio,
-  stopEmojiAudio,
-  unlockEmojiAudio,
-} from "@/lib/emoji-audio";
+  ReceivedEmojiPlayback,
+  type ReceivedReaction,
+} from "@/lib/emoji-playback";
 import { cloudError } from "@/lib/supabase";
 import { useEmojiInbox } from "@/hooks/use-emoji-inbox";
 import {
@@ -89,7 +88,7 @@ function ChatAvatar({ peer, shared }: { peer: EmojiPeer; shared: boolean }) {
     </ViewTransition>
   );
 }
-type Preferences = { sound: boolean; effects: boolean };
+type Preferences = { effects: boolean };
 type PendingSend = {
   peer: string;
   emoji: ReactionEmoji | null;
@@ -114,7 +113,6 @@ export function StudentChats({
     serverNarrow,
   );
   const [preferences, setPreferences] = useState<Preferences>({
-    sound: true,
     effects: true,
   });
   const [peerId, setPeerId] = useState<string | null>(null);
@@ -149,7 +147,6 @@ export function StudentChats({
     live.current = true;
     return () => {
       live.current = false;
-      stopEmojiAudio();
     };
   }, []);
   useEffect(() => {
@@ -158,28 +155,19 @@ export function StudentChats({
         const value = JSON.parse(
           localStorage.getItem("ml-emoji-preferences-v1") ?? "null",
         );
-        if (
-          value &&
-          typeof value.sound === "boolean" &&
-          typeof value.effects === "boolean"
-        )
-          setPreferences({ sound: value.sound, effects: value.effects });
+        if (value && typeof value.effects === "boolean")
+          setPreferences({ effects: value.effects });
       } catch {
         /* defaults work without storage */
       }
     }, 0);
-    const unlock = () => unlockEmojiAudio();
-    window.addEventListener("pointerdown", unlock, { once: true });
-    window.addEventListener("keydown", unlock, { once: true });
     return () => {
       clearTimeout(timer);
-      window.removeEventListener("pointerdown", unlock);
-      window.removeEventListener("keydown", unlock);
     };
   }, []);
   useEffect(() => {
     if (!burst) return;
-    const timer = setTimeout(() => setBurst(null), 1400);
+    const timer = setTimeout(() => setBurst(null), EMOJI_BURST_LIFETIME_MS);
     return () => clearTimeout(timer);
   }, [burst]);
   useEffect(() => {
@@ -189,23 +177,33 @@ export function StudentChats({
   }, [notice]);
   const react = useCallback(
     (emoji: ReactionEmoji, point?: { x: number; y: number }) => {
-      if (document.hidden) return;
-      if (preferences.sound) void playEmojiAudio(emoji);
+      if (document.hidden) return false;
       if (
-        preferences.effects &&
-        !matchMedia("(prefers-reduced-motion: reduce)").matches
+        !preferences.effects ||
+        matchMedia("(prefers-reduced-motion: reduce)").matches
       )
-        setBurst({
-          id: crypto.randomUUID(),
-          emoji,
-          x: point?.x ?? window.innerWidth / 2,
-          y:
-            point?.y ??
-            Math.min(window.innerHeight - 100, window.innerHeight * 0.68),
-        });
+        return false;
+      setBurst({
+        id: crypto.randomUUID(),
+        emoji,
+        x: point?.x ?? window.innerWidth / 2,
+        y: point?.y ?? window.innerHeight * 0.6,
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+      return true;
     },
     [preferences],
   );
+  const playback = useRef(new ReceivedEmojiPlayback());
+  const received = useCallback(
+    (message: ReceivedReaction | null) => playback.current.play(message, react),
+    [react],
+  );
+  const receivedRef = useRef(received);
+  useEffect(() => {
+    receivedRef.current = received;
+  }, [received]);
   const incoming = useCallback(
     (messages: EmojiMessage[], peers: EmojiPeer[]) => {
       const allowed = messages.filter(
@@ -222,15 +220,18 @@ export function StudentChats({
         return next;
       });
       if (active && peerId && !document.hidden) {
-        const latest = messages
-          .filter((message) => message.sender_id === peerId)
-          .at(-1);
-        if (latest)
-          void markEmojiRead(peerId, latest.id).catch(() => undefined);
+        const forPeer = allowed.filter(
+          (message) => message.sender_id === peerId,
+        );
+        if (!playback.current.buffer(peerId, forPeer)) {
+          received(forPeer.filter((message) => message.emoji).at(-1) ?? null);
+          const latest = forPeer.at(-1);
+          if (latest)
+            void markEmojiRead(peerId, latest.id).catch(() => undefined);
+        }
       }
       const last = allowed.at(-1);
       if (!last) return;
-      if (last.emoji) react(last.emoji);
       const sender = peers.find((peer) => peer.id === last.sender_id);
       if (!active || peerId !== last.sender_id)
         setNotice({
@@ -240,13 +241,14 @@ export function StudentChats({
           body: last.body,
         });
     },
-    [active, peerId, react],
+    [active, peerId, received],
   );
   const { peers, setPeers, ready, error, refresh } = useEmojiInbox(
     studentId,
     incoming,
   );
   const selected = peers.find((peer) => peer.id === peerId) ?? null;
+  const selectedBlocked = selected?.blocked ?? false;
   const messages = peerId ? (threads[peerId] ?? []) : [];
   const draft = peerId ? (drafts[peerId] ?? "") : "";
   useLayoutEffect(() => {
@@ -290,8 +292,28 @@ export function StudentChats({
   }, [unread, onUnread]);
   useEffect(() => {
     if (!active || !peerId) return;
+    let frame = 0;
+    const wake = () => {
+      if (document.hidden) return;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() =>
+        setThreadAttempt((value) => value + 1),
+      );
+    };
+    window.addEventListener("focus", wake);
+    document.addEventListener("visibilitychange", wake);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("focus", wake);
+      document.removeEventListener("visibilitychange", wake);
+    };
+  }, [active, peerId]);
+  useEffect(() => {
+    if (!active || !peerId) return;
     let keep = true;
     const target = peerId;
+    const player = playback.current;
+    player.begin(target);
     const timer = setTimeout(() => setLoadingPeer(target), 0);
     void loadEmojiThread(target)
       .then(async (loaded) => {
@@ -305,15 +327,25 @@ export function StudentChats({
           ...current,
           [target]: loaded.length === 40,
         }));
-        const last = loaded
-          .filter((message) => message.recipient_id === studentId)
-          .at(-1);
-        if (last && !document.hidden) {
-          await markEmojiRead(target, last.id);
+        const last = loaded.at(-1);
+        const unreadReaction =
+          last && !selectedBlocked
+            ? await loadUnreadReaction(target, studentId, last.id)
+            : null;
+        if (!keep || document.hidden) return;
+        const queued = player.finish(target, unreadReaction);
+        if (!selectedBlocked) receivedRef.current(queued.reaction);
+        const through = Math.max(last?.id ?? 0, queued.through);
+        if (through) {
+          await markEmojiRead(target, through);
           if (keep) {
+            // Preserve unread messages that arrived after this read request began.
             setPeers((current) =>
               current.map((peer) =>
-                peer.id === target ? { ...peer, unread: 0 } : peer,
+                peer.id === target &&
+                Number(peer.last_message_id ?? 0) <= through
+                  ? { ...peer, unread: 0 }
+                  : peer,
               ),
             );
             void refresh();
@@ -328,13 +360,25 @@ export function StudentChats({
       })
       .finally(() => {
         clearTimeout(timer);
-        if (keep) setLoadingPeer(null);
+        if (keep) {
+          player.cancel(target);
+          setLoadingPeer(null);
+        }
       });
     return () => {
       keep = false;
+      player.cancel(target);
       clearTimeout(timer);
     };
-  }, [active, peerId, studentId, threadAttempt, setPeers, refresh]);
+  }, [
+    active,
+    peerId,
+    studentId,
+    threadAttempt,
+    setPeers,
+    refresh,
+    selectedBlocked,
+  ]);
   useLayoutEffect(() => {
     const anchor = loadingOlder.current;
     if (anchor && scroll.current) {
@@ -364,10 +408,6 @@ export function StudentChats({
       localStorage.setItem("ml-emoji-preferences-v1", JSON.stringify(next));
     } catch {
       /* preference still works */
-    }
-    if (key === "sound") {
-      if (next.sound) unlockEmojiAudio();
-      else stopEmojiAudio();
     }
     if (key === "effects" && !next.effects) setBurst(null);
   }
@@ -407,7 +447,6 @@ export function StudentChats({
       messageInput.current?.focus();
       return;
     }
-    unlockEmojiAudio();
     locked.current = true;
     setSending(true);
     setFeedback(null);
@@ -523,23 +562,6 @@ export function StudentChats({
         <div className="chat-toolbar">
           <h2>Чаты</h2>
           <div className="chat-preferences">
-            <button
-              type="button"
-              className="chat-icon-button"
-              aria-label={
-                preferences.sound
-                  ? "Выключить звуки эмодзи"
-                  : "Включить звуки эмодзи"
-              }
-              aria-pressed={preferences.sound}
-              onClick={() => preference("sound")}
-            >
-              {preferences.sound ? (
-                <Volume2 size={18} aria-hidden="true" />
-              ) : (
-                <VolumeX size={18} aria-hidden="true" />
-              )}
-            </button>
             <button
               type="button"
               className="chat-icon-button"

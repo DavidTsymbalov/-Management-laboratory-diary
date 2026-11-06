@@ -71,6 +71,36 @@ export async function sendTextMessage(
     throw new Error("Отправка не подтверждена. Повторите попытку.");
   return { ...item, id: Number(item.id) };
 }
+export async function loadUnreadReaction(
+  peer: string,
+  studentId: string,
+  through: number,
+) {
+  const client = getSupabase();
+  const { data: position, error: readError } = await client
+    .from("student_emoji_reads")
+    .select("through_id")
+    .eq("owner_id", studentId)
+    .eq("peer_id", peer)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (Number(position?.through_id ?? 0) >= through) return null;
+  const { data, error } = await client
+    .from("student_emoji_messages")
+    .select("id,sender_id,emoji")
+    .eq("sender_id", peer)
+    .eq("recipient_id", studentId)
+    .gt("id", position?.through_id ?? 0)
+    .lte("id", through)
+    .not("emoji", "is", null)
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.emoji && isReactionEmoji(data.emoji)
+    ? { ...data, id: Number(data.id), emoji: data.emoji }
+    : null;
+}
 export async function markEmojiRead(peer: string, through: number) {
   const { error } = await getSupabase().rpc("mark_student_emoji_read", {
     peer_id: peer,

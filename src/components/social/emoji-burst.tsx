@@ -1,37 +1,47 @@
 "use client";
 import type { CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import type { ReactionEmoji } from "@/lib/emoji-reactions";
+import {
+  emojiBurstLayout,
+  EMOJI_BURST_DURATION_MS,
+} from "@/lib/emoji-burst-layout";
 export type EmojiBurstEvent = {
   id: string;
   emoji: ReactionEmoji;
   x: number;
   y: number;
+  width: number;
+  height: number;
 };
 export function EmojiBurst({ event }: { event: EmojiBurstEvent }) {
-  return (
+  if (typeof document === "undefined") return null;
+  const particles = emojiBurstLayout(event.width, event.height, event);
+  return createPortal(
     <div className="emoji-burst" aria-hidden="true">
-      {Array.from({ length: 24 }, (_, index) => {
-        const angle = -Math.PI + (index / 23) * Math.PI;
-        const distance = 110 + ((index * 47) % 190);
-        return (
-          <span
-            key={index}
-            style={
-              {
-                left: event.x,
-                top: event.y,
-                "--burst-x": `${Math.cos(angle) * distance}px`,
-                "--burst-y": `${Math.sin(angle) * distance - 90}px`,
-                "--burst-spin": `${(index % 2 ? 1 : -1) * (30 + index * 17)}deg`,
-                "--burst-delay": `${(index % 5) * 22}ms`,
-                "--burst-size": `${26 + (index % 4) * 7}px`,
-              } as CSSProperties
-            }
-          >
-            {event.emoji}
-          </span>
-        );
-      })}
-    </div>
+      {particles.map((particle, index) => (
+        <span
+          key={index}
+          style={
+            {
+              left: event.x,
+              top: event.y,
+              "--burst-x": `${particle.x}px`,
+              "--burst-y": `${particle.y}px`,
+              "--burst-mid-x": `${particle.x * 0.9}px`,
+              "--burst-mid-y": `${particle.y * 0.9}px`,
+              "--burst-spin": `${particle.spin}deg`,
+              "--burst-mid-spin": `${particle.spin * 0.85}deg`,
+              "--burst-delay": `${particle.delay}ms`,
+              "--burst-size": `${particle.size}px`,
+              "--burst-duration": `${EMOJI_BURST_DURATION_MS}ms`,
+            } as CSSProperties
+          }
+        >
+          {event.emoji}
+        </span>
+      ))}
+    </div>,
+    document.body,
   );
 }
