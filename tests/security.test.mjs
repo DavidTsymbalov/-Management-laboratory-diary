@@ -10,17 +10,17 @@ import {
   csa,
 } from "./helpers/security-db.mjs";
 const caps = { capacity: 26, deleted: 5, points: 100, awards: 10 };
-test("verified sessions and MFA gate all roles, spoofed metadata cannot create CSA, revoked JWTs lose table and RPC access", async () => {
+test("verified sessions gate roles, CSA accepts password login, spoofed metadata cannot create CSA and revoked JWTs lose access", async () => {
   const { db, as, sessions } = await securitySetup();
   try {
     assert.equal((await as(csa, "select is_csa() ok"))[0].ok, true);
     assert.equal(
       (await as(csa, "select is_csa() ok", [], { aal: "aal1" }))[0].ok,
-      false,
+      true,
     );
-    await assert.rejects(
-      as(csa, "select award_nuts($1,5)", [[bob]], { aal: "aal1" }),
-      /менять баллы/,
+    assert.equal(
+      (await as(csa, "select security_context() ctx"))[0].ctx.requires_mfa,
+      false,
     );
     for (const id of [alice, bob, outsider]) {
       assert.equal((await as(id, "select is_csa() ok"))[0].ok, false);
@@ -447,6 +447,101 @@ test("first CSA bootstrap requires exact UUID and matching identity; staff renam
       (await db.query("select user_id from csa_accounts")).rows[0].user_id,
       first,
     );
+  } finally {
+    await db.close();
+  }
+});
+
+test("CSA MFA removal migrates enrolled accounts idempotently, password-only sessions can use staff service operations and teacher MFA stays enforced", async () => {
+  const { db, as, sessions } = await securitySetup();
+  try {
+    const { readFile } = await import("node:fs/promises");
+    await db.query(
+      "insert into auth.mfa_factors(user_id,status,factor_type) values($1,'verified','totp'),($2,'verified','totp')",
+      [csa, teacher],
+    );
+    const migration = await readFile(
+      new URL(
+        "../supabase/migrations/202611070003_csa_password_login.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    await db.exec(migration);
+    await db.exec(migration);
+    assert.equal(
+      (
+        await db.query(
+          "select count(*)::int count from auth.mfa_factors where user_id=$1",
+          [csa],
+        )
+      ).rows[0].count,
+      0,
+    );
+    assert.equal(
+      (
+        await db.query(
+          "select count(*)::int count from auth.mfa_factors where user_id=$1",
+          [teacher],
+        )
+      ).rows[0].count,
+      1,
+    );
+    assert.equal(
+      (await as(csa, "select security_context() ctx"))[0].ctx.active,
+      false,
+      "old session of enrolled CSA was invalidated",
+    );
+    const sid = randomUUID();
+    await db.query(
+      "insert into auth.sessions(id,user_id,aal) values($1,$2,'aal1')",
+      [sid, csa],
+    );
+    const context = (
+      await as(csa, "select security_context() ctx", [], { sid, aal: "aal1" })
+    )[0].ctx;
+    assert.equal(context.active, true);
+    assert.equal(context.requires_mfa, false);
+    assert.equal(context.mfa_enrolled, false);
+    await as(csa, "select register_security_session()", [], {
+      sid,
+      aal: "aal1",
+    });
+    await as(csa, "select award_nuts($1,5)", [[bob]], { sid, aal: "aal1" });
+    const operation = (
+      await as(
+        null,
+        "select security_begin_operation($1,$2,'password_reset',$3) op",
+        [csa, sid, bob],
+        { role: "service_role" },
+      )
+    )[0].op;
+    await as(null, "select security_finish_operation($1,true)", [operation], {
+      role: "service_role",
+    });
+    assert.equal(
+      (await as(teacher, "select security_context() ctx"))[0].ctx.requires_mfa,
+      true,
+    );
+    await assert.rejects(
+      as(teacher, "select award_nuts($1,5)", [[alice]]),
+      /менять баллы/,
+    );
+    assert.equal(
+      (
+        await as(
+          csa,
+          "select * from list_security_events(null,null,$1,'csa_mfa_disabled')",
+          [csa],
+          { sid, aal: "aal1" },
+        )
+      ).length,
+      1,
+    );
+    await as(csa, "select revoke_security_session($1)", [sessions.get(alice)], {
+      sid,
+      aal: "aal1",
+    });
   } finally {
     await db.close();
   }

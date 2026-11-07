@@ -44,6 +44,7 @@ export const SECURITY_ACTIONS: Record<string, string> = {
   password_reset: "Смена пароля",
   mfa_reset: "Сброс 2FA",
   mfa_enabled: "Включение 2FA",
+  csa_mfa_disabled: "Вход CSA без 2FA",
   mfa_factor_removed: "Удаление фактора 2FA",
   session_revoked: "Завершение сессии",
   account_disabled: "Блокировка аккаунта",

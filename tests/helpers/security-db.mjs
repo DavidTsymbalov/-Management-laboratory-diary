@@ -13,6 +13,7 @@ export async function securitySetup() {
   for (const file of [
     "202611070001_attendance.sql",
     "202611070002_security_csa.sql",
+    "202611070003_csa_password_login.sql",
   ])
     await context.db.exec(
       await readFile(
@@ -29,6 +30,15 @@ export async function securitySetup() {
       "utf8",
     ),
   );
+  await context.db.exec(
+    await readFile(
+      new URL(
+        "../../supabase/migrations/202611070003_csa_password_login.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
   await context.db.query("insert into auth.users values($1)", [csa]);
   await context.db.query("insert into csa_accounts values($1,'CSA')", [csa]);
   const sessions = new Map();
@@ -37,13 +47,13 @@ export async function securitySetup() {
     sessions.set(id, sid);
     await context.db.query(
       "insert into auth.sessions(id,user_id,aal,user_agent,ip) values($1,$2,$3,'Test browser','127.0.0.1')",
-      [sid, id, id === csa ? "aal2" : "aal1"],
+      [sid, id, "aal1"],
     );
   }
   async function as(id, sql, args = [], options = {}) {
     const role = options.role ?? "authenticated",
       sid = options.sid ?? sessions.get(id),
-      aal = options.aal ?? (id === csa ? "aal2" : "aal1");
+      aal = options.aal ?? "aal1";
     await context.db.exec("begin");
     try {
       await context.db.exec(`set local role ${role}`);

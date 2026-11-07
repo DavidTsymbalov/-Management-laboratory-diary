@@ -65,7 +65,7 @@ Deno.serve(async (req: Request) => {
     if (!context?.active || context.id !== verified.data.user.id)
       return reply({ error: "Сессия отозвана." }, 401);
     if (context.role !== "csa" || context.requires_mfa)
-      return reply({ error: "Нужен CSA с подтверждённым 2FA." }, 403);
+      return reply({ error: "Требуется действующая сессия CSA." }, 403);
     const raw = await req.text();
     if (raw.length > 20000)
       return reply({ error: "Запрос слишком большой." }, 413);

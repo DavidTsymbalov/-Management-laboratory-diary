@@ -276,7 +276,11 @@ export function SecurityPanel({
       </div>
       <nav className="security-tabs" aria-label="Разделы безопасности">
         {tabs
-          .filter((item) => csa || !["accounts", "reactions"].includes(item.id))
+          .filter((item) =>
+            csa
+              ? item.id !== "mfa"
+              : !["accounts", "reactions"].includes(item.id),
+          )
           .map((item) => (
             <button
               key={item.id}
@@ -524,7 +528,7 @@ export function SecurityPanel({
           )}
         </>
       )}
-      {tab === "mfa" && (
+      {tab === "mfa" && !csa && (
         <>
           {mfaEnabled ? (
             <div className="security-mfa-enabled">
