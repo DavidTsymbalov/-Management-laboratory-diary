@@ -49,6 +49,21 @@ test("verified sessions and MFA gate all roles, spoofed metadata cannot create C
     assert.equal(event.details.before, 0);
     assert.equal(event.details.after, 5);
     assert.equal(event.session_id, sessions.get(alice));
+    await as(alice, "select award_nuts($1,-50)", [[bob]]);
+    const deduction = (
+      await as(
+        teacher,
+        "select * from list_security_events(null,$1,$2,'points')",
+        [alice, bob],
+      )
+    )[0];
+    assert.equal(deduction.details.before, 5);
+    assert.equal(deduction.details.after, 0);
+    assert.equal(
+      deduction.details.amount,
+      -5,
+      "audit records the actual deduction, including balance floor",
+    );
     await as(csa, "select revoke_security_session($1)", [sessions.get(alice)]);
     assert.equal((await as(alice, "select is_staff() ok"))[0].ok, false);
     assert.equal((await as(alice, "select * from students")).length, 0);

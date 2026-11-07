@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw, Shield, Smartphone } from "lucide-react";
+import { RefreshCw, Shield, Smartphone, SquareTerminal } from "lucide-react";
 import {
   getCloudRole,
   manageCloudStudents,
@@ -37,6 +37,19 @@ const format = new Intl.DateTimeFormat("ru-RU", {
   year: "numeric",
   hour: "2-digit",
   minute: "2-digit",
+  timeZone: "Europe/Moscow",
+});
+const logDate = new Intl.DateTimeFormat("ru-RU", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  timeZone: "Europe/Moscow",
+});
+const logTime = new Intl.DateTimeFormat("ru-RU", {
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
   timeZone: "Europe/Moscow",
 });
 const roles: Record<string, string> = {
@@ -335,60 +348,97 @@ export function SecurityPanel({
               Сбросить
             </button>
           </div>
-          {loading && !events.length ? (
-            <p role="status" className="teacher-empty">
-              Загружаем события…
-            </p>
-          ) : (
-            <ol className="security-events">
-              {events.map((event) => (
-                <li key={event.id}>
-                  <header>
-                    <strong>
-                      {SECURITY_ACTIONS[event.action] ?? event.action}
-                    </strong>
-                    <time dateTime={event.created_at}>
-                      {format.format(new Date(event.created_at))}
-                    </time>
-                  </header>
-                  <p>
-                    <b>{event.actor_name}</b>
-                    <span>{roles[event.actor_role] ?? event.actor_role}</span>
-                    {event.target_name && <> — {event.target_name}</>}
-                  </p>
-                  {eventDetails(event) && (
-                    <p className="security-event-detail">
-                      {eventDetails(event)}
-                    </p>
-                  )}
-                  {Boolean(event.details.outcome) && (
-                    <p
-                      className="security-outcome"
-                      data-outcome={String(event.details.outcome)}
-                    >
-                      {event.details.outcome === "pending"
-                        ? "Операция начата"
-                        : event.details.outcome === "success"
-                          ? "Выполнено"
-                          : "Запрос завершился с ошибкой"}
-                    </p>
-                  )}
-                  <footer>
-                    <span>{deviceDescription(event.device)}</span>
-                    {event.ip && <span>IP {event.ip}</span>}
-                    {event.session_id && (
-                      <span title={event.session_id}>
-                        Сессия {event.session_id.slice(0, 8)}
+          <div className="security-terminal">
+            <div className="security-terminal-toolbar">
+              <span>
+                <SquareTerminal size={16} aria-hidden="true" />
+                Событие --- Дата --- Время --- Устройство
+              </span>
+              <span role="status">
+                {loading ? "Чтение…" : `Записей: ${events.length}`}
+              </span>
+            </div>
+            {loading && !events.length ? (
+              <p className="security-terminal-empty" role="status">
+                Загружаем события…
+              </p>
+            ) : events.length ? (
+              <ol className="security-events" aria-label="Журнал безопасности">
+                {events.map((event) => {
+                  const detail = eventDetails(event),
+                    created = new Date(event.created_at);
+                  return (
+                    <li key={event.id}>
+                      <span className="security-terminal-copy">
+                        <strong>
+                          {event.action === "points"
+                            ? Number(event.details.amount) < 0
+                              ? "Списание баллов"
+                              : "Начисление баллов"
+                            : (SECURITY_ACTIONS[event.action] ?? event.action)}
+                        </strong>
+                        {`: ${event.actor_name} (${roles[event.actor_role] ?? event.actor_role})`}
+                        {event.target_name &&
+                          event.target_id !== event.actor_id &&
+                          ` → ${event.target_name}`}
+                        {detail && `; ${detail}`}
+                        {Boolean(event.details.outcome) && (
+                          <span className="security-terminal-outcome">{`; ${event.details.outcome === "pending" ? "запрос начат" : event.details.outcome === "success" ? "выполнено" : "запрос завершился с ошибкой"}`}</span>
+                        )}
                       </span>
-                    )}
-                  </footer>
-                </li>
-              ))}
-            </ol>
-          )}
-          {!loading && !events.length && (
-            <p className="teacher-empty">Подходящих событий нет.</p>
-          )}
+                      <span
+                        className="security-terminal-separator"
+                        aria-hidden="true"
+                      >
+                        {" "}
+                        ---{" "}
+                      </span>
+                      <time
+                        className="security-terminal-date"
+                        dateTime={event.created_at}
+                      >
+                        {logDate.format(created)}
+                      </time>
+                      <span
+                        className="security-terminal-separator"
+                        aria-hidden="true"
+                      >
+                        {" "}
+                        ---{" "}
+                      </span>
+                      <time
+                        className="security-terminal-time"
+                        dateTime={event.created_at}
+                      >
+                        {logTime.format(created)}
+                      </time>
+                      <span
+                        className="security-terminal-separator"
+                        aria-hidden="true"
+                      >
+                        {" "}
+                        ---{" "}
+                      </span>
+                      <span
+                        className="security-terminal-device"
+                        title={event.device ?? undefined}
+                      >
+                        {deviceDescription(event.device)}
+                        {event.ip && ` · IP ${event.ip}`}
+                        {event.session_id && (
+                          <span
+                            title={event.session_id}
+                          >{` · сессия ${event.session_id.slice(0, 8)}`}</span>
+                        )}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+            ) : (
+              <p className="security-terminal-empty">Подходящих событий нет.</p>
+            )}
+          </div>
           {more && (
             <button
               type="button"

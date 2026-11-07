@@ -125,6 +125,7 @@ export function TeacherPanel({
   const [credentials, setCredentials] = useState<StudentInput[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [amount, setAmount] = useState("5");
+  const [pointsAction, setPointsAction] = useState<"add" | "subtract">("add");
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
@@ -339,13 +340,12 @@ export function TeacherPanel({
   async function givePoints() {
     await run(async () => {
       const ids = selectedIds(),
-        value = Number(amount);
-      if (!Number.isInteger(value) || value === 0 || Math.abs(value) > 1000000)
-        throw new Error(
-          "Введите ненулевое целое число баллов от −1000000 до 1000000.",
-        );
+        magnitude = Number(amount),
+        value = pointsAction === "subtract" ? -magnitude : magnitude;
+      if (!Number.isInteger(magnitude) || magnitude <= 0 || magnitude > 1000000)
+        throw new Error("Введите целое число баллов от 1 до 1000000.");
       await awardCloudNuts(ids, value);
-      return `${value > 0 ? "Начислены" : "Списаны"} баллы: ${number(Math.abs(value))} × ${ids.length}.`;
+      return `Баллы ${pointsAction === "subtract" ? "списаны" : "начислены"}. Учеников: ${ids.length}.`;
     });
   }
   async function giveAward() {
@@ -995,6 +995,26 @@ export function TeacherPanel({
                       }}
                     >
                       <h2>Баллы</h2>
+                      <div
+                        className="teacher-points-action"
+                        role="group"
+                        aria-label="Действие с баллами"
+                      >
+                        <button
+                          type="button"
+                          aria-pressed={pointsAction === "add"}
+                          onClick={() => setPointsAction("add")}
+                        >
+                          Начислить
+                        </button>
+                        <button
+                          type="button"
+                          aria-pressed={pointsAction === "subtract"}
+                          onClick={() => setPointsAction("subtract")}
+                        >
+                          Списать
+                        </button>
+                      </div>
                       <div className="teacher-field">
                         <label htmlFor="award-amount">
                           Каждому выбранному ученику
@@ -1003,8 +1023,9 @@ export function TeacherPanel({
                           id="award-amount"
                           name="amount"
                           type="number"
+                          inputMode="numeric"
                           step={1}
-                          min={-1000000}
+                          min={1}
                           max={1000000}
                           value={amount}
                           onChange={(event) => setAmount(event.target.value)}
@@ -1019,17 +1040,21 @@ export function TeacherPanel({
                             aria-pressed={amount === String(value)}
                             onClick={() => setAmount(String(value))}
                           >
-                            +{value}
+                            {pointsAction === "subtract" ? "−" : "+"}
+                            {value}
                           </button>
                         ))}
                       </div>
-                      <p className="teacher-hint">
-                        Минус перед числом спишет баллы.
-                        {!teacher &&
-                          ` Расход лимита: ${number(Number.isFinite(Number(amount)) ? Math.abs(Number(amount)) * safeSelected.length : 0)}.`}
-                      </p>
+                      {(pointsAction === "subtract" || !teacher) && (
+                        <p className="teacher-hint">
+                          {pointsAction === "subtract" &&
+                            "Баланс не станет отрицательным."}
+                          {!teacher &&
+                            ` Расход лимита: ${number(Number.isFinite(Number(amount)) ? Math.abs(Number(amount)) * safeSelected.length : 0)}.`}
+                        </p>
+                      )}
                       <button type="submit" className="teacher-button primary">
-                        {Number(amount) < 0
+                        {pointsAction === "subtract"
                           ? "Списать баллы"
                           : "Начислить баллы"}
                       </button>

@@ -193,15 +193,15 @@ body {
 }
 
 .pixel-intro-from-left {
-  animation: pixel-intro-in-left 2s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
+  animation: pixel-intro-in-left .9s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both;
 }
 
 .pixel-intro-from-right {
-  animation: pixel-intro-in-right 2s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
+  animation: pixel-intro-in-right .9s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both;
 }
 
 .pixel-intro-delay {
-  animation-delay: 0.28s;
+  animation-delay: 0.14s;
 }
 
 /* После анимации — без повторного заезда */
@@ -1495,16 +1495,18 @@ body[data-emoji-thread="1"] { overflow: hidden; }
 .security-panel input:not([type=checkbox]),.security-panel select,.security-mfa input { min-width:0; width:100%; min-height:44px; border:1px solid var(--border); border-radius:4px; background:var(--background); color:var(--foreground); padding:10px 12px; font:inherit; font-size:14px; }
 .security-panel :is(input,select,button):focus-visible,.security-mfa :is(input,button):focus-visible { outline:2px solid var(--foreground); outline-offset:3px; }
 .security-filters { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)) auto; gap:16px; align-items:end; margin-bottom:24px; }
+.security-terminal { border:1px solid var(--border); border-radius:4px; overflow:hidden; margin-bottom:16px; background:var(--background); font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12px; line-height:1.8; }
+.security-terminal-toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 16px; padding:12px 16px; border-bottom:1px solid var(--border); background:var(--accent-soft); font-size:10px; }
+.security-terminal-toolbar>span:first-child { display:flex; align-items:center; gap:8px; }
+.security-terminal-toolbar>span:last-child { opacity:.65; }
 .security-events { list-style:none; padding:0; margin:0; }
-.security-events li { padding:24px 0; border-top:1px solid var(--border); overflow-wrap:anywhere; }
-.security-events header { display:flex; justify-content:space-between; gap:16px; margin-bottom:12px; }
-.security-events strong { font-size:15px; font-weight:500; }
-.security-events time { flex-shrink:0; font-size:11px; opacity:.65; }
-.security-events p { font-size:13px; line-height:1.65; margin:0 0 8px; }
-.security-events p span { margin-left:8px; opacity:.65; font-size:11px; }
-.security-events footer { display:flex; flex-wrap:wrap; gap:8px 16px; font-size:11px; opacity:.65; margin-top:12px; }
-.security-event-detail { white-space:pre-wrap; }
-.security-outcome { font-size:11px !important; opacity:.7; }
+.security-events li { padding:12px 16px; border-bottom:1px solid var(--border); overflow-wrap:anywhere; }
+.security-events li:last-child { border-bottom:0; }
+.security-events strong { font:inherit; font-weight:600; }
+.security-terminal-separator { opacity:.45; }
+.security-terminal-date,.security-terminal-time { white-space:nowrap; font-variant-numeric:tabular-nums; }
+.security-terminal-outcome,.security-terminal-device { opacity:.7; }
+.security-terminal-empty { padding:24px 16px; font:inherit; opacity:.65; }
 .security-context-note { margin-top:24px !important; max-width:72ch; }
 .security-account-picker { max-width:440px; margin-bottom:24px; }
 .security-devices { list-style:none; padding:0; margin:0; }
@@ -1545,10 +1547,15 @@ body[data-emoji-thread="1"] { overflow: hidden; }
  .security-tabs { margin-inline:-4px; }
  .security-tabs button { padding-inline:12px; }
  .security-filters,.security-profile-fields { grid-template-columns:1fr; }
- .security-events header { flex-direction:column; gap:8px; }
  .security-devices li { flex-wrap:wrap; gap:12px; }
  .security-devices li>.teacher-button { width:100%; }
  .security-account-actions>.teacher-button,.security-create-staff form>.teacher-button { width:100%; }
  .security-panel input:not([type=checkbox]),.security-panel select,.security-mfa input { font-size:16px; }
  .security-reaction-fields>div { grid-template-columns:32px 72px minmax(0,1fr); gap:8px; }
 }
+
+.teacher-points-action { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px; padding:4px; border:1px solid var(--border); border-radius:4px; margin-bottom:20px; }
+.teacher-points-action button { min-height:44px; padding:8px 12px; font-size:13px; border-radius:2px; }
+.teacher-points-action button[aria-pressed="true"] { background:var(--accent-soft); font-weight:500; }
+.teacher-points-action button:focus-visible { outline:2px solid var(--foreground); outline-offset:2px; }
+@media(max-width:700px) { .security-terminal { font-size:11px; } .security-events li { padding:12px; } .security-terminal-toolbar { padding:12px; font-size:9px; } }

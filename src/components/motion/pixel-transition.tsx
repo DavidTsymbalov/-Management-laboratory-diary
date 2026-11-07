@@ -12,15 +12,15 @@ function viewportGrid(): PixelGrid {
   return { columns, rows: Math.ceil(window.innerHeight / (window.innerWidth / columns)) };
 }
 
-const COVER_MS = 1100;
-const HOLD_MS = 420;
-const HOLD_AFTER_NAV_MS = 320;
-const REVEAL_MS = 1150;
-const BOOT_HOLD_MS = 650;
+const COVER_MS = 360;
+const HOLD_MS = 60;
+const HOLD_AFTER_NAV_MS = 140;
+const REVEAL_MS = 400;
+const BOOT_HOLD_MS = 120;
 /** Сколько едет текст слева/справа (должно ≥ CSS animation) */
-const INTRO_SLIDE_MS = 2300;
+const INTRO_SLIDE_MS = 1100;
 /** Пауза уже сложившимся текстом — только потом пиксели */
-const INTRO_HOLD_MS = 850;
+const INTRO_HOLD_MS = 120;
 
 type Phase = "boot" | "idle" | "intro" | "cover" | "hold" | "reveal";
 
@@ -183,8 +183,8 @@ export function PixelTransition() {
     busyRef.current = true;
     setPhase("reveal");
     setFilled(allOn(true, cellCount));
-    schedule(() => paintWave(false, orderReveal, REVEAL_MS), 40);
-    schedule(goIdle, REVEAL_MS + 180);
+    schedule(() => paintWave(false, orderReveal, REVEAL_MS), 16);
+    schedule(goIdle, REVEAL_MS + 48);
   }, [cellCount, clearTimers, goIdle, orderReveal, paintWave, schedule]);
 
   useEffect(() => {
@@ -213,7 +213,7 @@ export function PixelTransition() {
       clearHomeSlogan();
       setPhase("cover");
       setFilled(allOn(false, cellCount));
-      schedule(() => paintWave(true, orderCover, COVER_MS), 40);
+      schedule(() => paintWave(true, orderCover, COVER_MS), 16);
 
       schedule(() => {
         setPhase("hold");
@@ -228,7 +228,7 @@ export function PixelTransition() {
           router.push(next);
           schedule(() => revealRef.current(), HOLD_AFTER_NAV_MS);
         }, HOLD_MS);
-      }, COVER_MS + 80);
+      }, COVER_MS + 32);
     },
     [cellCount, clearHomeSlogan, clearTimers, goIdle, orderCover, paintWave, router, schedule],
   );
@@ -261,7 +261,7 @@ export function PixelTransition() {
       const toPixels = window.setTimeout(() => {
         setPhase("hold");
         setFilled(allOn(true, cellCountRef.current));
-        schedule(() => revealRef.current(), 220);
+        schedule(() => revealRef.current(), 60);
       }, INTRO_SLIDE_MS + INTRO_HOLD_MS);
 
       const safety = window.setTimeout(() => {
