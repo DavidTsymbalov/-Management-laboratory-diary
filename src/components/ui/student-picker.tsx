@@ -8,10 +8,12 @@ export function StudentPicker({
   students,
   disabled,
   onChange,
+  placeholder = "Выберите ученика",
 }: {
   id: string;
   value: string;
-  students: Student[];
+  students: Pick<Student, "id" | "name">[];
+  placeholder?: string;
   disabled?: boolean;
   onChange: (id: string) => void;
 }) {
@@ -45,7 +47,7 @@ export function StudentPicker({
         ?.querySelector('[data-active="true"]')
         ?.scrollIntoView({ block: "nearest" });
   }, [index, open, query]);
-  function choose(student: Student) {
+  function choose(student: Pick<Student, "id" | "name">) {
     onChange(student.id);
     setOpen(false);
     setQuery("");
@@ -70,7 +72,7 @@ export function StudentPicker({
             open && options[index] ? `${uid}-${options[index].id}` : undefined
           }
           value={open ? query : (selected?.name ?? "")}
-          placeholder={open ? "Поиск по имени…" : "Выберите ученика"}
+          placeholder={open ? "Поиск по имени…" : placeholder}
           disabled={disabled}
           onFocus={() => {
             if (skipFocusOpen.current) {

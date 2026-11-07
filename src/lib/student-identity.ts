@@ -1,6 +1,10 @@
 /** Shared by the browser and the Supabase function. No personal data in auth emails. */
 export function normalizeStudentName(name: string) {
-  return name.normalize("NFKC").trim().replace(/\s+/gu, " ").toLocaleLowerCase("ru-RU");
+  return name
+    .normalize("NFKC")
+    .trim()
+    .replace(/\s+/gu, " ")
+    .toLocaleLowerCase("ru-RU");
 }
 
 async function loginDigest(name: string) {
@@ -8,7 +12,9 @@ async function loginDigest(name: string) {
     "SHA-256",
     new TextEncoder().encode(normalizeStudentName(name)),
   );
-  const hex = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const hex = Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
   return hex.slice(0, 48);
 }
 
@@ -19,4 +25,11 @@ export async function studentEmail(name: string) {
 
 export async function teacherEmail(username: string) {
   return `t-${await loginDigest(username)}@teachers.management-laboratory.invalid`;
+}
+
+export function csaEmail(login: string) {
+  const name = normalizeStudentName(login);
+  if (!/^[a-z0-9_-]{3,32}$/.test(name))
+    throw new Error("Логин CSA: 3–32 латинских буквы, цифры, _ или -.");
+  return `${name}@csa.management-laboratory.invalid`;
 }

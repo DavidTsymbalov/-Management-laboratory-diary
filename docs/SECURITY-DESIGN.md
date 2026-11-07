@@ -1,0 +1,13 @@
+# Security and CSA
+
+Keep the current palette (#080a0d, #e5dac3, #1a2330, #ffffff, #161a20), Aktiv Grotesk / Inter and 8 px spacing grid. Security UI is a searchable event ledger, device list and direct account controls; no decorative risk scores or fake monitoring. Teacher sees Security; ordinary administrators cannot read it. CSA is a separate account and route with class management plus security, staff accounts and reaction settings.
+
+A password alone cannot grant CSA access: verified TOTP/AAL2 is mandatory. Existing teachers and administrators remain able to enroll TOTP voluntarily; once a verified factor exists, the database and Edge Function require AAL2. MFA setup/verification is available before privileged data. Initial CSA is bound by an exact Auth user UUID in an owner-run SQL script, never by email, signup metadata or a browser toggle. Further staff management requires an existing CSA.
+
+Every authenticated data path checks a real Auth session, an application revocation list and an account invalidation timestamp. RLS has restrictive session policies; definer RPCs check session through role guards or pupil identity. Device revocation blocks old access tokens at the data layer. It is not described as erasing a physical device. Auth session user agent/IP are recorded as reported context, not proof of a person's identity.
+
+Append-only security events cover actual verified logins, points before/after and recipients, awards and membership, permissions, password viewing/reset, lesson/homework/attendance changes, session revocation, MFA reset and reaction settings. No keystrokes, button presses, ordinary page views, message bodies, passwords, MFA secrets or tokens. Application roles including CSA cannot edit/delete events. Before sensitive Auth operations a server-only intent is logged, then its outcome; failures do not silently vanish.
+
+CSA can administer class data, create staff accounts, reset passwords and MFA, disable/re-enable accounts, revoke sessions, rename student display names, set balances, remove awards and configure the eight reaction display slots. It cannot run arbitrary SQL or retrieve Supabase secrets. Private pupil conversations remain participant-only. Granting a role is separate from its login screen; every backend action authorizes independently.
+
+All password actions remain server-side and responses are no-store. CORS is restricted to the deployed site and local development. Static production HTML receives a hash-based CSP; GitHub Pages cannot serve arbitrary application HTTP security headers. Supabase signup/password/rate-limit settings remain an owner-applied deployment configuration, not an unverified promise from frontend code.

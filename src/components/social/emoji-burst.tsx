@@ -10,6 +10,7 @@ import {
 export type EmojiBurstEvent = {
   id: string;
   emoji: ReactionEmoji;
+  glyph?: string;
   x: number;
   y: number;
   width: number;
@@ -52,7 +53,7 @@ export const EmojiBurst = memo(function EmojiBurst({
             } as CSSProperties
           }
         >
-          {event.emoji}
+          {event.glyph ?? event.emoji}
         </span>
       ))}
     </div>,

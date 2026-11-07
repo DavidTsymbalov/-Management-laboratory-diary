@@ -17,11 +17,49 @@ function compile(path) {
   ).outputText;
 }
 
-function functionHandler(admin) {
+function functionHandler(admin, options = {}) {
+  const originalRpc = admin.rpc?.bind(admin);
+  const service = {
+    ...admin,
+    rpc: async (name, args) => {
+      if (name === "security_begin_operation")
+        return { data: "11111111-1111-4111-8111-111111111111", error: null };
+      if (name === "security_finish_operation") return { error: null };
+      return originalRpc?.(name, args) ?? { error: null };
+    },
+  };
   let handler;
   const context = {
     exports: {},
-    require: () => ({ createClient: () => admin }),
+    require: () => ({
+      createClient: (_url, _key, config) =>
+        config?.global
+          ? {
+              rpc: async () => {
+                if (options.securityError)
+                  return { error: { message: "security unavailable" } };
+                const verified = await admin.auth.getUser("valid");
+                const id = verified.data.user?.id;
+                return {
+                  data: {
+                    id,
+                    session_id: "real-session",
+                    active: options.active ?? true,
+                    requires_mfa: options.requiresMfa ?? false,
+                    role:
+                      options.role ??
+                      (id === "teacher"
+                        ? "teacher"
+                        : id === "student-admin"
+                          ? "admin"
+                          : "student"),
+                  },
+                  error: null,
+                };
+              },
+            }
+          : service,
+    }),
     crypto: webcrypto,
     TextEncoder,
     TextDecoder,
@@ -224,7 +262,7 @@ test("administrator cannot view or reset passwords and member operations delegat
   );
   assert.equal(response.status, 400);
   assert.match((await response.json()).error, /Превышен/);
-  assert.equal(calls[0].name, "staff_delete_student");
+  assert.equal(calls[0].name, "secure_delete_student");
   assert.equal(calls[0].args.actor, "student-admin");
 });
 
@@ -264,4 +302,42 @@ test("only verified teacher can request a saved password and response is never c
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Cache-Control"), "no-store");
   assert.equal((await response.json()).password, "not-a-real-password-123");
+});
+
+test("Edge authorizes using verified context, rejects pending MFA, revoked sessions and disallowed origins", async () => {
+  const admin = {
+    auth: {
+      getUser: async () => ({ data: { user: { id: "teacher" } }, error: null }),
+    },
+  };
+  for (const [config, status] of [
+    [{ requiresMfa: true }, 403],
+    [{ active: false }, 401],
+    [{ securityError: true }, 503],
+  ]) {
+    const { handler } = functionHandler(admin, config);
+    const response = await handler(
+      new Request("https://example.test", {
+        method: "POST",
+        headers: { Authorization: "Bearer valid" },
+        body: JSON.stringify({ action: "delete", id: "pupil" }),
+      }),
+    );
+    assert.equal(response.status, status);
+  }
+  const response = await functionHandler(admin).handler(
+    new Request("https://example.test", {
+      method: "POST",
+      headers: {
+        Origin: "https://attacker.example",
+        Authorization: "Bearer valid",
+      },
+      body: "{}",
+    }),
+  );
+  assert.equal(response.status, 403);
+  assert.notEqual(
+    response.headers.get("Access-Control-Allow-Origin"),
+    "https://attacker.example",
+  );
 });

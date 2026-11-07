@@ -20,16 +20,21 @@ async function emailFor(name: string) {
 }
 
 const cors = {
-  "Access-Control-Allow-Origin": "*",
+  Vary: "Origin",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-function reply(data: unknown, status = 200) {
+function reply(
+  data: unknown,
+  status = 200,
+  origin = "https://davidtsymbalov.github.io",
+) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       ...cors,
+      "Access-Control-Allow-Origin": origin,
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
     },
@@ -87,14 +92,27 @@ async function decryptPassword(envelope: string) {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  const origin =
+    req.headers.get("Origin") ?? "https://davidtsymbalov.github.io";
+  const allowed =
+    origin === "https://davidtsymbalov.github.io" ||
+    /^http:\/\/(localhost|127\.0\.0\.1):(3000|3001)$/.test(origin);
+  const respond = (data: unknown, status = 200) =>
+    reply(data, status, allowed ? origin : "https://davidtsymbalov.github.io");
+  if (!allowed) return respond({ error: "Источник запроса не разрешён." }, 403);
+  if (req.method === "OPTIONS")
+    return new Response("ok", {
+      headers: { ...cors, "Access-Control-Allow-Origin": origin },
+    });
   if (req.method !== "POST")
-    return reply({ error: "Метод не поддерживается." }, 405);
+    return respond({ error: "Метод не поддерживается." }, 405);
+  let operation: string | null = null;
+  let auditAdmin: ReturnType<typeof createClient<any>> | null = null;
   try {
     const token = req.headers
       .get("Authorization")
       ?.match(/^Bearer (.+)$/i)?.[1];
-    if (!token) return reply({ error: "Войдите в кабинет учителя." }, 401);
+    if (!token) return respond({ error: "Войдите в кабинет учителя." }, 401);
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -102,47 +120,72 @@ Deno.serve(async (req: Request) => {
         auth: { persistSession: false, autoRefreshToken: false },
       },
     );
+    auditAdmin = admin;
     // This check is mandatory even when the gateway's legacy verify_jwt is disabled.
     const {
       data: { user },
       error: authError,
     } = await admin.auth.getUser(token);
     if (authError || !user)
-      return reply({ error: "Сессия истекла. Войдите снова." }, 401);
-    const teacher = await admin
-      .from("teachers")
-      .select("user_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (teacher.error) throw teacher.error;
-    const isTeacher = Boolean(teacher.data);
-    if (!isTeacher) {
-      const assigned = await admin
-        .from("student_administrators")
-        .select("student_id")
-        .eq("student_id", user.id)
-        .maybeSingle();
-      if (assigned.error) throw assigned.error;
-      if (!assigned.data)
-        return reply(
-          {
-            error:
-              "Действие доступно только преподавателю или назначенному администратору.",
-          },
-          403,
-        );
-    }
+      return respond({ error: "Сессия истекла. Войдите снова." }, 401);
+    const caller = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+        auth: { persistSession: false, autoRefreshToken: false },
+      },
+    );
+    const checked = await caller.rpc("security_context");
+    if (checked.error)
+      return respond(
+        { error: "Проверка безопасности недоступна. Повторите попытку." },
+        503,
+      );
+    const context = checked.data;
+    if (context?.id !== user.id || !context.active)
+      return respond({ error: "Сессия отозвана. Войдите снова." }, 401);
+    if (context.requires_mfa)
+      return respond({ error: "Подтвердите вход кодом 2FA." }, 403);
+    const isCSA = context.role === "csa";
+    const isTeacher = context.role === "teacher" || isCSA;
+    if (!isTeacher && context.role !== "admin")
+      return respond(
+        { error: "Действие доступно преподавателю или администратору." },
+        403,
+      );
+    const begin = async (action: string, id: string) => {
+      const result = await admin.rpc("security_begin_operation", {
+        actor: user.id,
+        sid: context.session_id,
+        operation: action,
+        target_user: id,
+      });
+      if (result.error || typeof result.data !== "string")
+        throw new Error("Не удалось записать действие безопасности.");
+      operation = result.data;
+    };
+    const finish = async (success: boolean) => {
+      if (!operation) return;
+      const result = await admin.rpc("security_finish_operation", {
+        operation_id: operation,
+        succeeded: success,
+      });
+      if (result.error)
+        throw new Error("Не удалось завершить запись безопасности.");
+      operation = null;
+    };
 
     const raw = await req.text();
     if (raw.length > 200000)
-      return reply({ error: "Слишком большой запрос." }, 413);
+      return respond({ error: "Слишком большой запрос." }, 413);
     const body = JSON.parse(raw);
 
     if (body.action === "view_password") {
       if (!isTeacher)
-        return reply({ error: "Пароли доступны только преподавателю." }, 403);
+        return respond({ error: "Пароли доступны только преподавателю." }, 403);
       if (typeof body.id !== "string")
-        return reply({ error: "Выберите ученика." }, 400);
+        return respond({ error: "Выберите ученика." }, 400);
       const saved = await admin
         .from("student_credentials")
         .select("ciphertext")
@@ -150,19 +193,21 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
       if (saved.error) throw saved.error;
       if (!saved.data?.ciphertext)
-        return reply(
+        return respond(
           {
             error:
               "Старый пароль не сохранён. Задайте новый — после этого его можно будет посмотреть.",
           },
           404,
         );
+      await begin("password_read", body.id);
       try {
-        return reply({
-          password: await decryptPassword(saved.data.ciphertext),
-        });
+        const password = await decryptPassword(saved.data.ciphertext);
+        await finish(true);
+        return respond({ password });
       } catch {
-        return reply(
+        await finish(false);
+        return respond(
           {
             error:
               "Не удалось расшифровать пароль. Задайте ученику новый пароль.",
@@ -177,7 +222,10 @@ Deno.serve(async (req: Request) => {
         body.students.length < 1 ||
         body.students.length > 30
       ) {
-        return reply({ error: "Добавляйте от 1 до 30 учеников за раз." }, 400);
+        return respond(
+          { error: "Добавляйте от 1 до 30 учеников за раз." },
+          400,
+        );
       }
       const created: string[] = [];
       const errors: string[] = [];
@@ -242,7 +290,8 @@ Deno.serve(async (req: Request) => {
           );
           continue;
         }
-        const saved = await admin.rpc("staff_provision_student", {
+        const saved = await admin.rpc("secure_provision_student", {
+          sid: context.session_id,
           actor: user.id,
           encrypted_password: encrypted,
           student_id: account.data.user.id,
@@ -265,24 +314,25 @@ Deno.serve(async (req: Request) => {
           );
         } else created.push(name);
       }
-      return reply({ created, errors });
+      return respond({ created, errors });
     }
 
     if (body.action === "delete") {
       if (typeof body.id !== "string")
-        return reply({ error: "Выберите ученика." }, 400);
-      const removed = await admin.rpc("staff_delete_student", {
+        return respond({ error: "Выберите ученика." }, 400);
+      const removed = await admin.rpc("secure_delete_student", {
+        sid: context.session_id,
         actor: user.id,
         target_id: body.id,
       });
-      if (removed.error) return reply({ error: removed.error.message }, 400);
-      return reply({ ok: true });
+      if (removed.error) return respond({ error: removed.error.message }, 400);
+      return respond({ ok: true });
     }
     if (body.action === "password") {
       if (!isTeacher)
-        return reply({ error: "Пароли меняет только преподаватель." }, 403);
+        return respond({ error: "Пароли меняет только преподаватель." }, 403);
       if (typeof body.id !== "string")
-        return reply({ error: "Не выбран ученик." }, 400);
+        return respond({ error: "Не выбран ученик." }, 400);
       const student = await admin
         .from("students")
         .select("id")
@@ -290,63 +340,72 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
       if (student.error) throw student.error;
       // Restricts admin operations to pupils; cannot delete/reset a teacher by ID.
-      if (!student.data) return reply({ error: "Ученик не найден." }, 404);
+      if (!student.data && !isCSA)
+        return respond({ error: "Ученик не найден." }, 404);
       const alsoTeacher = await admin
         .from("teachers")
         .select("user_id")
         .eq("user_id", body.id)
         .maybeSingle();
       if (alsoTeacher.error) throw alsoTeacher.error;
-      if (alsoTeacher.data)
-        return reply({ error: "Нельзя изменить аккаунт учителя." }, 403);
+      if (alsoTeacher.data && !isCSA)
+        return respond({ error: "Нельзя изменить аккаунт учителя." }, 403);
       if (
         typeof body.password !== "string" ||
-        body.password.length < 8 ||
+        body.password.length < (student.data ? 8 : 12) ||
         body.password.length > 128
       ) {
-        return reply(
+        return respond(
           { error: "Пароль должен содержать от 8 до 128 символов." },
           400,
         );
       }
-      const encrypted = await encryptPassword(body.password);
+      await begin("password_reset", body.id);
+      const encrypted = student.data
+        ? await encryptPassword(body.password)
+        : null;
       // Never display a stale password if a profile save fails after Auth succeeds.
-      const invalidated = await admin
-        .from("student_credentials")
-        .upsert({
+      if (student.data) {
+        const invalidated = await admin.from("student_credentials").upsert({
           student_id: body.id,
           ciphertext: null,
           updated_at: new Date().toISOString(),
         });
-      if (invalidated.error) throw invalidated.error;
+        if (invalidated.error) throw invalidated.error;
+      }
       const changed = await admin.auth.admin.updateUserById(body.id, {
         password: body.password,
       });
       if (changed.error) throw changed.error;
-      const stored = await admin
-        .from("student_credentials")
-        .upsert({
+      await finish(true);
+      if (student.data) {
+        const stored = await admin.from("student_credentials").upsert({
           student_id: body.id,
           ciphertext: encrypted,
           updated_at: new Date().toISOString(),
         });
-      if (stored.error)
-        return reply(
-          {
-            error:
-              "Пароль изменён, но не сохранён для просмотра. Задайте его повторно.",
-          },
-          500,
-        );
-      return reply({ ok: true });
+        if (stored.error)
+          return respond(
+            {
+              error:
+                "Пароль изменён, но не сохранён для просмотра. Задайте его повторно.",
+            },
+            500,
+          );
+      }
+      return respond({ ok: true });
     }
-    return reply({ error: "Неизвестное действие." }, 400);
-  } catch (error) {
-    console.error(
-      "manage-students failed",
-      error instanceof Error ? error.message : "database error",
-    );
-    return reply(
+    return respond({ error: "Неизвестное действие." }, 400);
+  } catch {
+    if (operation && auditAdmin)
+      await Promise.resolve(
+        auditAdmin.rpc("security_finish_operation", {
+          operation_id: operation,
+          succeeded: false,
+        }),
+      ).catch(() => null);
+    console.error("manage-students operation failed");
+    return respond(
       {
         error:
           "Операция не выполнена. Проверьте настройки базы и повторите попытку.",

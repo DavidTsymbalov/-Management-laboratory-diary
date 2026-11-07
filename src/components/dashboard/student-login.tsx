@@ -7,11 +7,18 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
-import { getCloudRole, signInCloud } from "@/lib/cloud-store";
+import {
+  getCloudRole,
+  signInCloud,
+  signOutCloud,
+  type CloudRole,
+} from "@/lib/cloud-store";
+import { MfaForm } from "@/components/dashboard/mfa-form";
 import { cloudError } from "@/lib/supabase";
 
 export function StudentLogin() {
   const router = useRouter();
+  const [account, setAccount] = useState<CloudRole | null>(null);
   const [ready, setReady] = useState(false);
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
@@ -20,14 +27,25 @@ export function StudentLogin() {
 
   useEffect(() => {
     let active = true;
-    void getCloudRole().then((role) => {
-      if (!active) return;
-      if (role?.role === "student" || role?.role === "admin") router.replace("/student/dashboard/");
-      else setReady(true);
-    }).catch((error) => {
-      if (active) { setError(cloudError(error)); setReady(true); }
-    });
-    return () => { active = false; };
+    void getCloudRole()
+      .then((role) => {
+        if (!active) return;
+        if (role?.role === "student" || role?.role === "admin") {
+          if (role.requiresMfa) {
+            setAccount(role);
+            setReady(true);
+          } else router.replace("/student/dashboard/");
+        } else setReady(true);
+      })
+      .catch((error) => {
+        if (active) {
+          setError(cloudError(error));
+          setReady(true);
+        }
+      });
+    return () => {
+      active = false;
+    };
   }, [router]);
 
   async function onSubmit(e: FormEvent) {
@@ -36,8 +54,10 @@ export function StudentLogin() {
     setBusy(true);
     setError(null);
     try {
-      await signInCloud(name, password, "student");
-      router.push("/student/dashboard/");
+      const current = await signInCloud(name, password, "student");
+      setPassword("");
+      if (current?.requiresMfa) setAccount(current);
+      else router.push("/student/dashboard/");
     } catch (error) {
       setError(cloudError(error));
     } finally {
@@ -48,6 +68,32 @@ export function StudentLogin() {
   if (!ready) {
     return <p className="text-muted-foreground">Загрузка…</p>;
   }
+
+  if (account?.requiresMfa)
+    return (
+      <div className="mx-auto max-w-md space-y-8">
+        <h1>Подтверждение входа</h1>
+        <MfaForm
+          enrolled={Boolean(account.mfaEnrolled)}
+          onVerified={async () => {
+            const current = await getCloudRole();
+            if (current && !current.requiresMfa)
+              router.replace("/student/dashboard/");
+            else throw new Error("Не удалось подтвердить вход.");
+          }}
+        />
+        <Button
+          onClick={() =>
+            void signOutCloud()
+              .then(() => setAccount(null))
+              .catch((error) => setError(cloudError(error)))
+          }
+        >
+          Другой аккаунт
+        </Button>
+        {error && <p role="alert">{error}</p>}
+      </div>
+    );
 
   return (
     <div className="mx-auto max-w-md space-y-8">

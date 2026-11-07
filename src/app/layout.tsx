@@ -20,6 +20,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  referrer: "strict-origin-when-cross-origin",
   title: {
     default: "Management Laboratory",
     template: "%s · Management Laboratory",

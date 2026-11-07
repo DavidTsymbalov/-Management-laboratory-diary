@@ -46,6 +46,7 @@ import {
   type ReceivedReaction,
 } from "@/lib/emoji-playback";
 import { cloudError } from "@/lib/supabase";
+import { useChatDisplay } from "@/hooks/use-chat-display";
 import { useEmojiInbox } from "@/hooks/use-emoji-inbox";
 import {
   EmojiBurst,
@@ -133,6 +134,10 @@ export function StudentChats({
   const [peerId, setPeerId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const display = useChatDisplay();
+  const reactionGlyph = (key: ReactionEmoji) => display.get(key)?.glyph ?? key;
+  const reactionLabel = (key: ReactionEmoji) =>
+    display.get(key)?.label ?? reactionName(key);
   const [reactionsOpen, setReactionsOpen] = useState(false);
   const messageInput = useRef<HTMLTextAreaElement>(null);
   const [threads, setThreads] = useState<Record<string, EmojiMessage[]>>({});
@@ -742,7 +747,7 @@ export function StudentChats({
                                 : peer.last_body
                                   ? peer.last_body
                                   : peer.last_emoji
-                                    ? `${peer.last_emoji} ${reactionName(peer.last_emoji)}`
+                                    ? `${reactionGlyph(peer.last_emoji)} ${reactionLabel(peer.last_emoji)}`
                                     : "Написать сообщение"}
                             </small>
                           </span>
@@ -873,9 +878,9 @@ export function StudentChats({
                                   <span
                                     className="chat-message-emoji"
                                     role="img"
-                                    aria-label={reactionName(message.emoji)}
+                                    aria-label={reactionLabel(message.emoji)}
                                   >
-                                    {message.emoji}
+                                    {reactionGlyph(message.emoji)}
                                   </span>
                                 ) : (
                                   <p className="chat-message-text" dir="auto">
@@ -897,7 +902,9 @@ export function StudentChats({
                     {pending?.peer === selected.id && (
                       <div className="chat-pending" role="status">
                         <span className="chat-pending-preview">
-                          {pending.emoji ?? pending.body}
+                          {pending.emoji
+                            ? reactionGlyph(pending.emoji)
+                            : pending.body}
                         </span>
                         {pending.failed ? (
                           <button
@@ -940,12 +947,14 @@ export function StudentChats({
                               key={reaction.emoji}
                               type="button"
                               disabled={sending}
-                              aria-label={`Отправить: ${reaction.name}`}
+                              aria-label={`Отправить: ${reactionLabel(reaction.emoji)}`}
                               onClick={(event) =>
                                 void send(reaction.emoji, event)
                               }
                             >
-                              <span aria-hidden="true">{reaction.emoji}</span>
+                              <span aria-hidden="true">
+                                {reactionGlyph(reaction.emoji)}
+                              </span>
                             </button>
                           ))}
                         </div>
@@ -1034,7 +1043,7 @@ export function StudentChats({
           .map((burst) => (
             <EmojiBurst
               key={burst.id}
-              event={burst}
+              event={{ ...burst, glyph: reactionGlyph(burst.emoji) }}
               onComplete={completeBurst}
             />
           ))}
@@ -1042,7 +1051,11 @@ export function StudentChats({
         <div className="emoji-notification" role="status">
           <button type="button" onClick={() => openPeer(notice.peer)}>
             <span aria-hidden="true">
-              {notice.emoji ?? <MessageCircle size={24} />}
+              {notice.emoji ? (
+                reactionGlyph(notice.emoji)
+              ) : (
+                <MessageCircle size={24} />
+              )}
             </span>
             <span>
               <strong>{notice.name}</strong>

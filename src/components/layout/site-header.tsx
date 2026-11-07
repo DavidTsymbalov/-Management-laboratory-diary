@@ -15,6 +15,7 @@ const baseLinks = [
   { key: "student", base: "/student/", label: "Ученик" },
   { key: "teacher", base: "/teacher/", label: "Учитель" },
   { key: "admin", base: "/admin/", label: "Админ" },
+  { key: "csa", base: "/csa/", label: "CSA" },
 ] as const;
 
 export function SiteHeader() {
@@ -117,7 +118,7 @@ export function SiteHeader() {
               "header-navigation col-span-2 grid w-full items-center gap-2 sm:col-span-1 sm:flex sm:justify-end",
               account || !ready
                 ? "header-account"
-                : "header-guest grid-cols-[1fr_1fr_1.5fr_auto]",
+                : "header-guest grid-cols-[1fr_1fr_1fr_auto_auto]",
             )}
             aria-label="Навигация"
           >
@@ -157,12 +158,22 @@ export function SiteHeader() {
                 <Link
                   className="header-account-link"
                   href={
-                    account.role === "teacher"
-                      ? "/teacher/dashboard/"
-                      : "/student/dashboard/"
+                    account.requiresMfa
+                      ? `/${account.role}/`
+                      : account.role === "csa"
+                        ? "/csa/dashboard/"
+                        : account.role === "teacher"
+                          ? "/teacher/dashboard/"
+                          : "/student/dashboard/"
                   }
                 >
-                  {account.role === "teacher" ? "Кабинет" : "Мой дневник"}
+                  {account.requiresMfa
+                    ? "Подтвердить вход"
+                    : account.role === "csa"
+                      ? "CSA"
+                      : account.role === "teacher"
+                        ? "Кабинет"
+                        : "Мой дневник"}
                 </Link>
                 {account.role === "admin" && (
                   <Link

@@ -22,6 +22,7 @@ import {
   Plus,
   Search,
   ShieldCheck,
+  Shield,
   Users,
   X,
 } from "lucide-react";
@@ -50,12 +51,14 @@ import { TeacherCharts } from "@/components/dashboard/teacher-charts";
 import { AdministratorSettings } from "@/components/dashboard/administrator-settings";
 import { HomeworkBoard } from "@/components/dashboard/homework-board";
 import { AttendanceRegister } from "@/components/dashboard/attendance-register";
+import { SecurityPanel } from "@/components/dashboard/security-panel";
 import { ActivityList } from "@/components/dashboard/activity-list";
 import { StudentAccess } from "@/components/dashboard/student-access";
 import { FeedbackToast, type Feedback } from "@/components/ui/feedback-toast";
 import Link from "next/link";
 
 type Tab =
+  | "security"
   | "attendance"
   | "homework"
   | "overview"
@@ -70,6 +73,7 @@ const destinations = [
   { id: "students", label: "Ученики", icon: Users },
   { id: "awards", label: "Награды", icon: Award },
   { id: "administrators", label: "Администраторы", icon: ShieldCheck },
+  { id: "security", label: "Безопасность", icon: Shield },
   { id: "activity", label: "История действий", icon: ClipboardList },
 ] as const;
 const emptyExtras: StaffExtras = {
@@ -105,7 +109,7 @@ function limitsFor(
 export function TeacherPanel({
   role = "teacher",
 }: {
-  role?: "teacher" | "admin";
+  role?: "teacher" | "admin" | "csa";
 }) {
   const router = useRouter();
   const [actor, setActor] = useState<CloudRole | null>(null);
@@ -127,7 +131,7 @@ export function TeacherPanel({
   const [adminEditor, setAdminEditor] = useState<string | null>(null);
   const locked = useRef(false);
   const addField = useRef<HTMLTextAreaElement>(null);
-  const teacher = role === "teacher";
+  const teacher = role !== "admin";
 
   useEffect(() => {
     let active = true;
@@ -136,7 +140,7 @@ export function TeacherPanel({
       try {
         const current = await getCloudRole();
         if (!active) return;
-        if (current?.role !== role) {
+        if (current?.requiresMfa || current?.role !== role) {
           router.replace(`/${role}/`);
           return;
         }
@@ -152,6 +156,8 @@ export function TeacherPanel({
         }
       } catch (error) {
         if (active) {
+          setData(null);
+          setActor(null);
           setLoadError(cloudError(error));
         }
       }
@@ -399,7 +405,13 @@ export function TeacherPanel({
     >
       <header className="teacher-heading">
         <div>
-          <p>{teacher ? "Преподаватель" : "Администратор"}</p>
+          <p>
+            {role === "csa"
+              ? "CSA"
+              : teacher
+                ? "Преподаватель"
+                : "Администратор"}
+          </p>
           <h1>{actor?.name ?? "Управление классом"}</h1>
         </div>
         <div className="teacher-heading-actions">
@@ -423,7 +435,11 @@ export function TeacherPanel({
       <div className="teacher-layout">
         <nav className="teacher-navigation" aria-label="Разделы кабинета">
           {destinations
-            .filter((item) => teacher || item.id !== "administrators")
+            .filter(
+              (item) =>
+                teacher ||
+                (item.id !== "administrators" && item.id !== "security"),
+            )
             .map((item) => (
               <button
                 key={item.id}
@@ -441,7 +457,7 @@ export function TeacherPanel({
             ))}
         </nav>
         <div className="teacher-content">
-          {tab !== "homework" && tab !== "attendance" && (
+          {tab !== "homework" && tab !== "attendance" && tab !== "security" && (
             <div className="teacher-page-heading">
               <h2>{pageTitle}</h2>
               {tab === "students" && (
@@ -1157,6 +1173,9 @@ export function TeacherPanel({
                 <AttendanceRegister students={data.students} />
               )}
               {tab === "homework" && <HomeworkBoard editable />}
+              {tab === "security" && actor && teacher && (
+                <SecurityPanel actor={actor} students={data.students} />
+              )}
               {tab === "activity" && (
                 <section className="teacher-section">
                   <div className="teacher-section-heading">

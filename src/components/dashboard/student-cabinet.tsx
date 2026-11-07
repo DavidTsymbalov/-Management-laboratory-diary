@@ -52,6 +52,10 @@ export function StudentCabinet() {
       try {
         const role = await getCloudRole();
         if (!active) return;
+        if (role?.requiresMfa) {
+          router.replace(`/${role.role}/`);
+          return;
+        }
         if (role?.role !== "student" && role?.role !== "admin") {
           router.replace("/student/");
           return;
@@ -69,7 +73,11 @@ export function StudentCabinet() {
         setStanding(rank.status === "fulfilled" ? rank.value : null);
         setRankError(rank.status === "rejected");
       } catch (reason) {
-        if (active) setError(cloudError(reason));
+        if (active) {
+          setData(null);
+          setStudentId(null);
+          setError(cloudError(reason));
+        }
       }
     }
     void refresh();

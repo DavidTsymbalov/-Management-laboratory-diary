@@ -3,11 +3,14 @@
 import type { Achievement, Student } from "@/data/seed";
 import type { AppData } from "@/lib/store";
 import { getSupabase } from "@/lib/supabase";
-import { studentEmail, teacherEmail } from "@/lib/student-identity";
+import { studentEmail, teacherEmail, csaEmail } from "@/lib/student-identity";
 import { setStudentSessionId, setTeacherLoggedIn } from "@/lib/session";
 
 export type CloudRole = {
-  role: "teacher" | "student" | "admin";
+  role: "teacher" | "student" | "admin" | "csa";
+  requiresMfa?: boolean;
+  mfaEnrolled?: boolean;
+  sessionId?: string;
   id: string;
   name: string;
 };
@@ -19,6 +22,7 @@ function rememberRole(role: CloudRole | null) {
   );
 }
 
+const registeredSessions = new Set<string>();
 export async function getCloudRole(): Promise<CloudRole | null> {
   const db = getSupabase();
   const { data: session } = await db.auth.getSession();
@@ -26,7 +30,6 @@ export async function getCloudRole(): Promise<CloudRole | null> {
     rememberRole(null);
     return null;
   }
-  // Server verification, never trust the old local session flags for access.
   const {
     data: { user },
     error,
@@ -35,34 +38,38 @@ export async function getCloudRole(): Promise<CloudRole | null> {
     rememberRole(null);
     throw error;
   }
-  if (!user) return null;
-  const [teacher, student, assigned] = await Promise.all([
-    db
-      .from("teachers")
-      .select("user_id,name")
-      .eq("user_id", user.id)
-      .maybeSingle(),
-    db.from("students").select("id,name").eq("id", user.id).maybeSingle(),
-    db
-      .from("student_administrators")
-      .select("student_id")
-      .eq("student_id", user.id)
-      .maybeSingle(),
-  ]);
-  if (teacher.error) throw teacher.error;
-  if (student.error) throw student.error;
-  if (assigned.error && !missingStaffMigration(assigned.error))
-    throw assigned.error;
-  const role: CloudRole | null = teacher.data
-    ? { role: "teacher", id: user.id, name: teacher.data.name }
-    : student.data
-      ? {
-          role: assigned.data ? "admin" : "student",
-          id: user.id,
-          name: student.data.name,
-        }
-      : null;
-  rememberRole(role);
+  if (!user) {
+    rememberRole(null);
+    return null;
+  }
+  const checked = await db.rpc("security_context");
+  if (checked.error) {
+    rememberRole(null);
+    throw checked.error;
+  }
+  const context = checked.data;
+  if (!context?.active || context.id !== user.id) {
+    rememberRole(null);
+    throw new Error("Сессия отозвана или аккаунт заблокирован. Войдите снова.");
+  }
+  if (!["teacher", "student", "admin", "csa"].includes(context.role)) {
+    rememberRole(null);
+    return null;
+  }
+  const role: CloudRole = {
+    id: user.id,
+    name: context.name,
+    role: context.role,
+    requiresMfa: context.requires_mfa,
+    mfaEnrolled: context.mfa_enrolled,
+    sessionId: context.session_id,
+  };
+  if (!role.requiresMfa && !registeredSessions.has(context.session_id)) {
+    const logged = await db.rpc("register_security_session");
+    if (logged.error) throw logged.error;
+    registeredSessions.add(context.session_id);
+  }
+  rememberRole(role.requiresMfa ? null : role);
   return role;
 }
 
@@ -72,9 +79,11 @@ export async function signInCloud(
   expected: CloudRole["role"],
 ) {
   const email =
-    expected === "teacher"
-      ? await teacherEmail(login)
-      : await studentEmail(login);
+    expected === "csa"
+      ? csaEmail(login)
+      : expected === "teacher"
+        ? await teacherEmail(login)
+        : await studentEmail(login);
   const db = getSupabase();
   const { error } = await db.auth.signInWithPassword({ email, password });
   if (error) throw error;
@@ -85,18 +94,36 @@ export async function signInCloud(
   ) {
     await signOutCloud();
     throw new Error(
-      expected === "teacher"
-        ? "Этому аккаунту не назначены права учителя."
-        : expected === "admin"
-          ? "Преподаватель не назначил этому ученику права администратора."
-          : "Ученик не найден в классе.",
+      expected === "csa"
+        ? "Этому аккаунту не назначен доступ CSA."
+        : expected === "teacher"
+          ? "Этому аккаунту не назначены права учителя."
+          : expected === "admin"
+            ? "Преподаватель не назначил этому ученику права администратора."
+            : "Ученик не найден в классе.",
     );
   }
   return role;
 }
 
 export async function signOutCloud() {
-  const { error } = await getSupabase().auth.signOut({ scope: "local" });
+  const client = getSupabase();
+  try {
+    const checked = await client.rpc("security_context");
+    if (
+      !checked.error &&
+      checked.data?.active &&
+      !checked.data.requires_mfa &&
+      checked.data.session_id
+    ) {
+      await client.rpc("revoke_security_session", {
+        target_session: checked.data.session_id,
+      });
+    }
+  } catch {
+    /* Provider logout must remain available during an API outage. */
+  }
+  const { error } = await client.auth.signOut({ scope: "local" });
   if (error) throw error;
   rememberRole(null);
 }
@@ -277,7 +304,7 @@ export type StaffExtras = {
   moreActivity: boolean;
 };
 export async function loadStaffExtras(
-  role: "teacher" | "admin",
+  role: "teacher" | "admin" | "csa",
 ): Promise<StaffExtras> {
   const db = getSupabase();
   const [assigned, activity, quota] = await Promise.all([
