@@ -15,6 +15,7 @@ import {
   BarChart3,
   Check,
   ClipboardList,
+  CalendarCheck,
   BookOpen,
   Copy,
   LogOut,
@@ -48,12 +49,14 @@ import { StatsGrid } from "@/components/dashboard/stats-grid";
 import { TeacherCharts } from "@/components/dashboard/teacher-charts";
 import { AdministratorSettings } from "@/components/dashboard/administrator-settings";
 import { HomeworkBoard } from "@/components/dashboard/homework-board";
+import { AttendanceRegister } from "@/components/dashboard/attendance-register";
 import { ActivityList } from "@/components/dashboard/activity-list";
 import { StudentAccess } from "@/components/dashboard/student-access";
 import { FeedbackToast, type Feedback } from "@/components/ui/feedback-toast";
 import Link from "next/link";
 
 type Tab =
+  | "attendance"
   | "homework"
   | "overview"
   | "students"
@@ -62,11 +65,12 @@ type Tab =
   | "activity";
 const destinations = [
   { id: "overview", label: "Обзор", icon: BarChart3 },
+  { id: "attendance", label: "Классный журнал", icon: CalendarCheck },
   { id: "homework", label: "Домашние задания", icon: BookOpen },
   { id: "students", label: "Ученики", icon: Users },
   { id: "awards", label: "Награды", icon: Award },
   { id: "administrators", label: "Администраторы", icon: ShieldCheck },
-  { id: "activity", label: "Журнал", icon: ClipboardList },
+  { id: "activity", label: "История действий", icon: ClipboardList },
 ] as const;
 const emptyExtras: StaffExtras = {
   available: false,
@@ -437,7 +441,7 @@ export function TeacherPanel({
             ))}
         </nav>
         <div className="teacher-content">
-          {tab !== "homework" && (
+          {tab !== "homework" && tab !== "attendance" && (
             <div className="teacher-page-heading">
               <h2>{pageTitle}</h2>
               {tab === "students" && (
@@ -478,36 +482,39 @@ export function TeacherPanel({
               </button>
             </p>
           )}
-          {!teacher && extras.quota && (
-            <section
-              className="teacher-quota"
-              aria-label="Ограничения администратора"
-            >
-              <div className="teacher-section-heading">
-                <h3>Ваши ограничения</h3>
-                <span>Дневной сброс в 00:00 МСК</span>
-              </div>
-              <dl>
-                {(
-                  Object.keys(limitLabels) as (keyof AdministratorLimits)[]
-                ).map((key) => {
-                  const used =
-                    key === "capacity"
-                      ? data.students.length
-                      : extras.quota!.used[key];
-                  const cap = extras.quota!.limits[key];
-                  return (
-                    <div key={key}>
-                      <dt>{limitLabels[key]}</dt>
-                      <dd>
-                        {number(used)} <span>/ {number(cap)}</span>
-                      </dd>
-                    </div>
-                  );
-                })}
-              </dl>
-            </section>
-          )}
+          {!teacher &&
+            extras.quota &&
+            tab !== "attendance" &&
+            tab !== "homework" && (
+              <section
+                className="teacher-quota"
+                aria-label="Ограничения администратора"
+              >
+                <div className="teacher-section-heading">
+                  <h3>Ваши ограничения</h3>
+                  <span>Дневной сброс в 00:00 МСК</span>
+                </div>
+                <dl>
+                  {(
+                    Object.keys(limitLabels) as (keyof AdministratorLimits)[]
+                  ).map((key) => {
+                    const used =
+                      key === "capacity"
+                        ? data.students.length
+                        : extras.quota!.used[key];
+                    const cap = extras.quota!.limits[key];
+                    return (
+                      <div key={key}>
+                        <dt>{limitLabels[key]}</dt>
+                        <dd>
+                          {number(used)} <span>/ {number(cap)}</span>
+                        </dd>
+                      </div>
+                    );
+                  })}
+                </dl>
+              </section>
+            )}
           <ViewTransition
             key={tab}
             default="none"
@@ -1145,6 +1152,9 @@ export function TeacherPanel({
                     </>
                   )}
                 </>
+              )}
+              {tab === "attendance" && (
+                <AttendanceRegister students={data.students} />
               )}
               {tab === "homework" && <HomeworkBoard editable />}
               {tab === "activity" && (

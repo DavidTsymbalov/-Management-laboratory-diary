@@ -249,7 +249,11 @@ export type ActivityEntry = {
     | "homework_create"
     | "homework_edit"
     | "homework_archive"
-    | "homework_restore";
+    | "homework_restore"
+    | "lesson_create"
+    | "lesson_cancel"
+    | "lesson_restore"
+    | "attendance_mark";
   student_id: string | null;
   student_name: string;
   amount: number | null;

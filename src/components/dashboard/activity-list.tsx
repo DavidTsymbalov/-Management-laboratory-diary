@@ -7,6 +7,10 @@ const formatter = new Intl.DateTimeFormat("ru-RU", {
   timeZone: "Europe/Moscow",
 });
 const verbs = {
+  lesson_create: "Добавлено занятие",
+  lesson_cancel: "Занятие отменено",
+  lesson_restore: "Занятие восстановлено",
+  attendance_mark: "Посещаемость изменена",
   homework_create: "Опубликовано ДЗ",
   homework_edit: "Изменено ДЗ",
   homework_archive: "ДЗ в архиве",
