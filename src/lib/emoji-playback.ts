@@ -76,6 +76,19 @@ export class ReceivedEmojiPlayback {
     }
     this.queues.delete(peer);
   }
+  discard(ids: number[]) {
+    const removed = new Set(ids);
+    if (this.opening)
+      this.opening.messages = this.opening.messages.filter(
+        (message) => !removed.has(message.id),
+      );
+    for (const queue of this.queues.values())
+      for (const id of removed) queue.delete(id);
+    for (const id of removed) {
+      this.started.delete(id);
+      this.completed.add(id);
+    }
+  }
   readableThrough(peer: string) {
     if (this.isOpening(peer)) return 0;
     let through = this.observed.get(peer) ?? 0;

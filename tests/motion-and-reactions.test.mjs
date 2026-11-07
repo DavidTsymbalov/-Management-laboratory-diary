@@ -248,3 +248,30 @@ test("pausing overlapping effects releases their IDs for replay and cannot skip 
   assert.equal(player.next("anna").id, 3);
   assert.equal(player.readableThrough("anna"), 2);
 });
+
+test("deleted reactions cancel queued and buffered animation and stale thread loads cannot restore removed content", () => {
+  const { ReceivedEmojiPlayback } = module("../src/lib/emoji-playback.ts");
+  const player = new ReceivedEmojiPlayback();
+  const reaction = { id: 21, sender_id: "alice", emoji: "💩" };
+  player.enqueue("alice", [reaction]);
+  player.start("alice", 21);
+  player.begin("alice");
+  player.buffer("alice", [reaction]);
+  player.discard([21]);
+  player.finish("alice", [reaction]);
+  assert.equal(player.next("alice"), null);
+  assert.equal(player.start("alice", 21), false);
+  assert.equal(player.readableThrough("alice"), 0);
+  const original = { ...reaction, body: "old text", deleted_at: null };
+  const deleted = {
+    ...original,
+    emoji: null,
+    body: null,
+    deleted_at: "2026-11-07T12:00:00Z",
+  };
+  assert.equal(mergeEmojiMessages([deleted], [original])[0].body, null);
+  assert.equal(
+    mergeEmojiMessages([original], [deleted])[0].deleted_at,
+    deleted.deleted_at,
+  );
+});

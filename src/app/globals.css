@@ -1559,3 +1559,35 @@ body[data-emoji-thread="1"] { overflow: hidden; }
 .teacher-points-action button[aria-pressed="true"] { background:var(--accent-soft); font-weight:500; }
 .teacher-points-action button:focus-visible { outline:2px solid var(--foreground); outline-offset:2px; }
 @media(max-width:700px) { .security-terminal { font-size:11px; } .security-events li { padding:12px; } .security-terminal-toolbar { padding:12px; font-size:9px; } }
+
+.chat-message-footer { display:flex; justify-content:flex-end; align-items:center; gap:8px; }
+.chat-message-footer time { margin-top:0; }
+.chat-delete-button { display:grid; place-items:center; min-width:40px; min-height:40px; opacity:.65; border-radius:4px; }
+.chat-delete-button:hover,.chat-delete-button:focus-visible { opacity:1; background:var(--accent-soft); }
+.chat-delete-confirm { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:4px 12px; border-top:1px solid var(--border); padding-top:8px; font-size:11px; }
+.chat-delete-confirm>span { flex-basis:100%; }
+.chat-delete-confirm button { min-height:40px; padding-inline:8px; text-decoration:underline; text-underline-offset:3px; }
+.chat-message-deleted { font-size:12px; line-height:1.65; opacity:.6; }
+.student-remarks:empty { display:none; }
+.student-remarks { position:fixed; z-index:1101; top:88px; right:20px; width:480px; max-width:calc(100vw - 32px); max-height:calc(100svh - 112px); overflow-y:auto; display:grid; gap:12px; }
+.student-remark { display:flex; align-items:flex-start; gap:16px; padding:20px; border:1px solid color-mix(in srgb,#b54d4d 48%,var(--border)); background:color-mix(in srgb,#b54d4d 10%,var(--background)); border-radius:4px; }
+.student-remark>svg { flex-shrink:0; color:#aa484d; margin-top:3px; }
+.student-remark>div { flex:1; min-width:0; }
+.student-remark h2 { font-size:14px; font-weight:500; line-height:1.6; margin-bottom:8px; color:#963e43; }
+.dark .student-remark h2,.dark .student-remark>svg { color:#e6a4a4; }
+.student-remark p { font-size:14px; line-height:1.7; white-space:pre-wrap; overflow-wrap:anywhere; max-height:30svh; overflow-y:auto; }
+.student-remark .teacher-button { flex-shrink:0; }
+.remarks-board>h2 { font-size:24px; font-weight:500; margin-bottom:24px; letter-spacing:-.03em; }
+.remarks-form { display:grid; gap:20px; max-width:640px; }
+.remarks-form label { display:flex; flex-direction:column; gap:8px; font-size:12px; line-height:1.5; }
+.remarks-form textarea { width:100%; min-height:120px; padding:12px; border:1px solid var(--border); border-radius:4px; background:var(--background); color:var(--foreground); font-size:14px; line-height:1.7; resize:vertical; }
+.remarks-form>.teacher-button { justify-self:start; }
+.remarks-history { border-top:1px solid var(--border); margin-top:32px; padding-top:24px; }
+.remarks-history h3 { font-size:16px; font-weight:500; }
+.remarks-history ol { margin:16px 0 0; padding:0; list-style:none; }
+.remarks-history li { padding:20px 0; border-top:1px solid var(--border); }
+.remarks-history li p { font-size:14px; line-height:1.7; white-space:pre-wrap; overflow-wrap:anywhere; }
+.remarks-history footer { display:flex; flex-wrap:wrap; gap:8px 16px; font-size:11px; line-height:1.6; opacity:.65; margin-top:12px; }
+@media(max-width:700px) { .student-remark { flex-wrap:wrap; padding:16px; gap:12px; } .student-remark>div { flex-basis:calc(100% - 40px); } .student-remark>.teacher-button { margin-left:32px; } .remarks-form textarea { font-size:16px; } .chat-delete-button,.chat-delete-confirm button { min-height:44px; } }
+
+@media(max-width:700px) { .student-remarks { top:calc(104px + env(safe-area-inset-top)); right:16px; max-height:max(120px,calc(100svh - 136px - var(--chat-keyboard-bottom,0px))); } }

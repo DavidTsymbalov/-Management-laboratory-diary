@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { AchievementBadge } from "@/components/ui/achievement-badge";
 import { HomeworkBoard } from "@/components/dashboard/homework-board";
+import { StudentRemarks } from "@/components/dashboard/student-remarks";
 import { StudentChats } from "@/components/social/student-chats";
 import type { AppData } from "@/lib/store";
 import {
@@ -117,6 +118,7 @@ export function StudentCabinet() {
     );
   return (
     <div className="student-journal">
+      <StudentRemarks key={studentId} studentId={studentId} />
       <header className="student-journal-heading">
         <div>
           <p>Мой дневник</p>

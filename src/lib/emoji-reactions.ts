@@ -23,12 +23,15 @@ export type EmojiMessage = {
   body: string | null;
   client_nonce: string;
   sent_at: string;
+  deleted_at?: string | null;
+  change_id?: number | null;
 };
 export type EmojiPeer = {
   id: string;
   name: string;
   last_emoji: ReactionEmoji | null;
   last_body?: string | null;
+  last_deleted_at?: string | null;
   last_message_id: number | null;
   last_sent_at: string | null;
   unread: number;
@@ -38,12 +41,17 @@ export type EmojiChatState = {
   peers: EmojiPeer[];
   incoming: EmojiMessage[];
   cursor: number;
+  changes?: EmojiMessage[];
+  change_cursor?: number;
 };
 export function mergeEmojiMessages(
   current: EmojiMessage[],
   incoming: EmojiMessage[],
 ) {
   const messages = new Map<number, EmojiMessage>();
-  for (const item of [...current, ...incoming]) messages.set(item.id, item);
+  for (const item of [...current, ...incoming]) {
+    if (messages.get(item.id)?.deleted_at && !item.deleted_at) continue;
+    messages.set(item.id, item);
+  }
   return [...messages.values()].sort((a, b) => a.id - b.id);
 }

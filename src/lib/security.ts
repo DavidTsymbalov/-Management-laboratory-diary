@@ -32,6 +32,9 @@ export type SecurityDevice = {
   revoked: boolean;
 };
 export const SECURITY_ACTIONS: Record<string, string> = {
+  remark_sent: "Отправка замечания",
+  remark_dismissed: "Закрытие замечания учеником",
+  chat_message_deleted: "Удаление своего сообщения",
   auth_login: "Успешный вход",
   auth_password_changed: "Изменение пароля в Auth",
   auth_identity_changed: "Изменение адреса входа",

@@ -8,9 +8,11 @@ import {
 } from "@/lib/emoji-reactions";
 export async function loadEmojiState(
   cursor: number | null,
+  changeCursor: number | null = null,
 ): Promise<EmojiChatState> {
-  const { data, error } = await getSupabase().rpc("student_emoji_state", {
+  const { data, error } = await getSupabase().rpc("student_chat_state", {
     after_message_id: cursor,
+    after_change_id: changeCursor,
   });
   if (error) throw error;
   if (
@@ -20,7 +22,15 @@ export async function loadEmojiState(
     !Number.isFinite(Number(data.cursor))
   )
     throw new Error("Не удалось прочитать чаты.");
-  return { ...data, cursor: Number(data.cursor) };
+  return {
+    ...data,
+    cursor: Number(data.cursor),
+    changes: (data.changes ?? []).map((item: EmojiMessage) => ({
+      ...item,
+      id: Number(item.id),
+    })),
+    change_cursor: Number(data.change_cursor ?? 0),
+  };
 }
 export async function loadEmojiThread(
   peer: string,
@@ -129,4 +139,15 @@ export async function blockEmojiPeer(peer: string, blocked: boolean) {
     blocked,
   });
   if (error) throw error;
+}
+
+export async function deleteChatMessage(id: number): Promise<EmojiMessage> {
+  const { data, error } = await getSupabase().rpc("delete_student_message", {
+    message_id: id,
+  });
+  if (error) throw error;
+  const item = Array.isArray(data) ? data[0] : data;
+  if (!item?.deleted_at)
+    throw new Error("Удаление не подтверждено. Повторите попытку.");
+  return { ...item, id: Number(item.id) };
 }

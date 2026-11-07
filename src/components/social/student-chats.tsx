@@ -22,10 +22,12 @@ import {
   Send,
   Smile,
   Sparkles,
+  Trash2,
   X,
 } from "lucide-react";
 import {
   blockEmojiPeer,
+  deleteChatMessage,
   loadEmojiThread,
   loadUnreadReactions,
   markEmojiRead,
@@ -148,6 +150,8 @@ export function StudentChats({
   const [pending, setPending] = useState<PendingSend | null>(null);
   const [sending, setSending] = useState(false);
   const [blocking, setBlocking] = useState(false);
+  const [deleteCandidate, setDeleteCandidate] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState<number | null>(null);
   const [bursts, setBursts] = useState<
     (EmojiBurstEvent & { peer: string; message: ReceivedReaction })[]
   >([]);
@@ -157,6 +161,7 @@ export function StudentChats({
   const lastLaunch = useRef(-Infinity);
   const [playbackVersion, setPlaybackVersion] = useState(0);
   const [notice, setNotice] = useState<{
+    id: number;
     peer: string;
     name: string;
     emoji: ReactionEmoji | null;
@@ -198,6 +203,7 @@ export function StudentChats({
     return () => clearTimeout(timer);
   }, [notice]);
   const playback = useRef(new ReceivedEmojiPlayback());
+  const deletions = useRef(new Map<number, EmojiMessage>());
   const acknowledged = useRef(new Map<string, number>());
   const visible = useSyncExternalStore(
     visibilitySubscribe,
@@ -214,21 +220,66 @@ export function StudentChats({
     () => setPlaybackVersion((version) => version + 1),
     [],
   );
-  const incoming = useCallback(
-    (messages: EmojiMessage[], peers: EmojiPeer[]) => {
-      const allowed = messages.filter(
-        (message) =>
-          !peers.find((peer) => peer.id === message.sender_id)?.blocked,
+  const rememberDeletions = useCallback(
+    (messages: EmojiMessage[]) => {
+      const deleted = messages.filter((message) => message.deleted_at);
+      if (!deleted.length) return;
+      for (const message of deleted) deletions.current.set(message.id, message);
+      setPending((current) =>
+        current &&
+        deleted.some(
+          (message) =>
+            message.sender_id === studentId &&
+            message.client_nonce === current.nonce,
+        )
+          ? null
+          : current,
       );
+      const ids = new Set(deleted.map((message) => message.id));
+      playback.current.discard([...ids]);
+      for (const [id, running] of runningBursts.current)
+        if (ids.has(running.message.id)) runningBursts.current.delete(id);
+      setBursts((current) =>
+        current.filter((item) => !ids.has(item.message.id)),
+      );
+      setNotice((current) => (current && ids.has(current.id) ? null : current));
+      wakePlayback();
+    },
+    [wakePlayback, studentId],
+  );
+  const incoming = useCallback(
+    (
+      messages: EmojiMessage[],
+      peers: EmojiPeer[],
+      changes: EmojiMessage[] = [],
+    ) => {
+      rememberDeletions([...changes, ...messages]);
       setThreads((current) => {
         const next = { ...current };
-        for (const message of messages)
-          next[message.sender_id] = mergeEmojiMessages(
-            next[message.sender_id] ?? [],
-            [message],
-          );
+        for (const item of messages) {
+          const message = deletions.current.get(item.id) ?? item;
+          const peer =
+            message.sender_id === studentId
+              ? message.recipient_id
+              : message.sender_id;
+          next[peer] = mergeEmojiMessages(next[peer] ?? [], [message]);
+        }
+        for (const message of changes) {
+          const peer =
+            message.sender_id === studentId
+              ? message.recipient_id
+              : message.sender_id;
+          if (next[peer]?.some((item) => item.id === message.id))
+            next[peer] = mergeEmojiMessages(next[peer], [message]);
+        }
         return next;
       });
+      const allowed = messages.filter(
+        (message) =>
+          !message.deleted_at &&
+          !deletions.current.has(message.id) &&
+          !peers.find((peer) => peer.id === message.sender_id)?.blocked,
+      );
       if (active && peerId && !document.hidden) {
         const forPeer = allowed.filter(
           (message) => message.sender_id === peerId,
@@ -245,13 +296,14 @@ export function StudentChats({
       const sender = peers.find((peer) => peer.id === last.sender_id);
       if (!active || peerId !== last.sender_id)
         setNotice({
+          id: last.id,
           peer: last.sender_id,
           name: sender?.name ?? "Одноклассник",
           emoji: last.emoji,
           body: last.body,
         });
     },
-    [active, peerId, wakePlayback],
+    [active, peerId, studentId, wakePlayback, rememberDeletions],
   );
   const { peers, setPeers, ready, error, refresh } = useEmojiInbox(
     studentId,
@@ -442,10 +494,14 @@ export function StudentChats({
     void loadEmojiThread(target)
       .then(async (loaded) => {
         if (!keep) return;
+        rememberDeletions(loaded);
         setThreadError(false);
         setThreads((current) => ({
           ...current,
-          [target]: mergeEmojiMessages(current[target] ?? [], loaded),
+          [target]: mergeEmojiMessages(
+            current[target] ?? [],
+            loaded.map((item) => deletions.current.get(item.id) ?? item),
+          ),
         }));
         setCanLoadMore((current) => ({
           ...current,
@@ -488,6 +544,7 @@ export function StudentChats({
     refresh,
     selectedBlocked,
     wakePlayback,
+    rememberDeletions,
   ]);
   useLayoutEffect(() => {
     const anchor = loadingOlder.current;
@@ -526,6 +583,7 @@ export function StudentChats({
     setFeedback(null);
     setNotice(null);
     setReactionsOpen(false);
+    setDeleteCandidate(null);
     onOpen();
     startTransition(() => {
       addTransitionType("chat-open");
@@ -573,11 +631,13 @@ export function StudentChats({
       if (!live.current) return;
       setThreads((current) => ({
         ...current,
-        [target]: mergeEmojiMessages(current[target] ?? [], [sent]),
+        [target]: mergeEmojiMessages(current[target] ?? [], [
+          deletions.current.get(sent.id) ?? sent,
+        ]),
       }));
       setPending(null);
       nearBottom.current = true;
-      if (emoji) {
+      if (emoji && !deletions.current.has(sent.id)) {
         playback.current.enqueue(target, [{ ...sent, point }]);
         wakePlayback();
       } else if (originalDraft.trim() === body)
@@ -589,8 +649,17 @@ export function StudentChats({
       void refresh();
     } catch (reason) {
       if (live.current) {
-        setPending({ peer: target, emoji, body, nonce, failed: true });
-        setFeedback({ type: "error", message: cloudError(reason) });
+        if (
+          [...deletions.current.values()].some(
+            (message) =>
+              message.sender_id === studentId && message.client_nonce === nonce,
+          )
+        )
+          setPending(null);
+        else {
+          setPending({ peer: target, emoji, body, nonce, failed: true });
+          setFeedback({ type: "error", message: cloudError(reason) });
+        }
       }
     } finally {
       locked.current = false;
@@ -608,6 +677,23 @@ export function StudentChats({
         : undefined;
     void send(null, undefined, retry);
   }
+  async function removeMessage(id: number) {
+    if (deleting !== null) return;
+    setDeleting(id);
+    setFeedback(null);
+    try {
+      const deleted = await deleteChatMessage(id);
+      if (!live.current) return;
+      incoming([], peers, [deleted]);
+      setDeleteCandidate(null);
+      void refresh();
+    } catch (reason) {
+      if (live.current)
+        setFeedback({ type: "error", message: cloudError(reason) });
+    } finally {
+      if (live.current) setDeleting(null);
+    }
+  }
   async function loadOlder() {
     if (!peerId || older || !messages.length) return;
     setOlder(true);
@@ -615,6 +701,7 @@ export function StudentChats({
     try {
       const loaded = await loadEmojiThread(target, messages[0].id);
       if (!live.current) return;
+      rememberDeletions(loaded);
       if (currentPeer.current === target && scroll.current)
         loadingOlder.current = {
           top: scroll.current.scrollTop,
@@ -622,7 +709,10 @@ export function StudentChats({
         };
       setThreads((current) => ({
         ...current,
-        [target]: mergeEmojiMessages(current[target] ?? [], loaded),
+        [target]: mergeEmojiMessages(
+          current[target] ?? [],
+          loaded.map((item) => deletions.current.get(item.id) ?? item),
+        ),
       }));
       setCanLoadMore((current) => ({
         ...current,
@@ -744,11 +834,13 @@ export function StudentChats({
                             <small>
                               {peer.blocked
                                 ? "Чат заблокирован"
-                                : peer.last_body
-                                  ? peer.last_body
-                                  : peer.last_emoji
-                                    ? `${reactionGlyph(peer.last_emoji)} ${reactionLabel(peer.last_emoji)}`
-                                    : "Написать сообщение"}
+                                : peer.last_deleted_at
+                                  ? "Сообщение удалено"
+                                  : peer.last_body
+                                    ? peer.last_body
+                                    : peer.last_emoji
+                                      ? `${reactionGlyph(peer.last_emoji)} ${reactionLabel(peer.last_emoji)}`
+                                      : "Написать сообщение"}
                             </small>
                           </span>
                           {peer.unread > 0 && (
@@ -874,7 +966,11 @@ export function StudentChats({
                                 className="chat-message"
                                 data-mine={message.sender_id === studentId}
                               >
-                                {message.emoji ? (
+                                {message.deleted_at ? (
+                                  <p className="chat-message-deleted">
+                                    Сообщение удалено
+                                  </p>
+                                ) : message.emoji ? (
                                   <span
                                     className="chat-message-emoji"
                                     role="img"
@@ -887,12 +983,63 @@ export function StudentChats({
                                     {message.body}
                                   </p>
                                 )}
-                                <time dateTime={message.sent_at}>
-                                  {time.format(new Date(message.sent_at))}
-                                  {message.sender_id === studentId && (
-                                    <Check size={11} aria-label="Отправлено" />
+                                <div className="chat-message-footer">
+                                  <time dateTime={message.sent_at}>
+                                    {time.format(new Date(message.sent_at))}
+                                    {message.sender_id === studentId &&
+                                      !message.deleted_at && (
+                                        <Check
+                                          size={11}
+                                          aria-label="Отправлено"
+                                        />
+                                      )}
+                                  </time>
+                                  {message.sender_id === studentId &&
+                                    !message.deleted_at && (
+                                      <button
+                                        type="button"
+                                        className="chat-delete-button"
+                                        aria-label="Удалить сообщение"
+                                        aria-expanded={
+                                          deleteCandidate === message.id
+                                        }
+                                        disabled={deleting !== null}
+                                        onClick={() =>
+                                          setDeleteCandidate((current) =>
+                                            current === message.id
+                                              ? null
+                                              : message.id,
+                                          )
+                                        }
+                                      >
+                                        <Trash2 size={15} aria-hidden="true" />
+                                      </button>
+                                    )}
+                                </div>
+                                {deleteCandidate === message.id &&
+                                  !message.deleted_at && (
+                                    <div className="chat-delete-confirm">
+                                      <span>Удалить у обоих?</span>
+                                      <button
+                                        type="button"
+                                        disabled={deleting !== null}
+                                        onClick={() =>
+                                          void removeMessage(message.id)
+                                        }
+                                      >
+                                        {deleting === message.id
+                                          ? "Удаляем…"
+                                          : "Удалить"}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={deleting !== null}
+                                        onClick={() => setDeleteCandidate(null)}
+                                      >
+                                        Отмена
+                                      </button>
+                                    </div>
                                   )}
-                                </time>
                               </div>
                             </li>
                           );

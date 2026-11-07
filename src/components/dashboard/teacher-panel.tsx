@@ -19,6 +19,7 @@ import {
   BookOpen,
   Copy,
   LogOut,
+  MessageSquareWarning,
   Plus,
   Search,
   ShieldCheck,
@@ -51,6 +52,8 @@ import { TeacherCharts } from "@/components/dashboard/teacher-charts";
 import { AdministratorSettings } from "@/components/dashboard/administrator-settings";
 import { HomeworkBoard } from "@/components/dashboard/homework-board";
 import { AttendanceRegister } from "@/components/dashboard/attendance-register";
+import { StudentRemarks } from "@/components/dashboard/student-remarks";
+import { RemarksBoard } from "@/components/dashboard/remarks-board";
 import { SecurityPanel } from "@/components/dashboard/security-panel";
 import { ActivityList } from "@/components/dashboard/activity-list";
 import { StudentAccess } from "@/components/dashboard/student-access";
@@ -58,6 +61,7 @@ import { FeedbackToast, type Feedback } from "@/components/ui/feedback-toast";
 import Link from "next/link";
 
 type Tab =
+  | "remarks"
   | "security"
   | "attendance"
   | "homework"
@@ -73,6 +77,7 @@ const destinations = [
   { id: "students", label: "Ученики", icon: Users },
   { id: "awards", label: "Награды", icon: Award },
   { id: "administrators", label: "Администраторы", icon: ShieldCheck },
+  { id: "remarks", label: "Замечания", icon: MessageSquareWarning },
   { id: "security", label: "Безопасность", icon: Shield },
   { id: "activity", label: "История действий", icon: ClipboardList },
 ] as const;
@@ -403,6 +408,9 @@ export function TeacherPanel({
       className="teacher-workspace"
       onChangeCapture={() => setFeedback(null)}
     >
+      {role === "admin" && actor && (
+        <StudentRemarks key={actor.id} studentId={actor.id} />
+      )}
       <header className="teacher-heading">
         <div>
           <p>
@@ -438,7 +446,9 @@ export function TeacherPanel({
             .filter(
               (item) =>
                 teacher ||
-                (item.id !== "administrators" && item.id !== "security"),
+                (item.id !== "administrators" &&
+                  item.id !== "security" &&
+                  item.id !== "remarks"),
             )
             .map((item) => (
               <button
@@ -457,36 +467,39 @@ export function TeacherPanel({
             ))}
         </nav>
         <div className="teacher-content">
-          {tab !== "homework" && tab !== "attendance" && tab !== "security" && (
-            <div className="teacher-page-heading">
-              <h2>{pageTitle}</h2>
-              {tab === "students" && (
-                <button
-                  type="button"
-                  className="teacher-button primary"
-                  disabled={busy}
-                  onClick={() => {
-                    setShowAdd((value) => !value);
-                    setFeedback(null);
-                  }}
-                >
-                  <Plus size={18} aria-hidden="true" />
-                  {showAdd ? "Закрыть форму" : "Добавить учеников"}
-                </button>
-              )}
-              {tab === "administrators" && adminEditor === null && (
-                <button
-                  type="button"
-                  className="teacher-button primary"
-                  disabled={busy || !extras.available}
-                  onClick={() => setAdminEditor("")}
-                >
-                  <Plus size={18} aria-hidden="true" />
-                  Назначить
-                </button>
-              )}
-            </div>
-          )}
+          {tab !== "homework" &&
+            tab !== "attendance" &&
+            tab !== "security" &&
+            tab !== "remarks" && (
+              <div className="teacher-page-heading">
+                <h2>{pageTitle}</h2>
+                {tab === "students" && (
+                  <button
+                    type="button"
+                    className="teacher-button primary"
+                    disabled={busy}
+                    onClick={() => {
+                      setShowAdd((value) => !value);
+                      setFeedback(null);
+                    }}
+                  >
+                    <Plus size={18} aria-hidden="true" />
+                    {showAdd ? "Закрыть форму" : "Добавить учеников"}
+                  </button>
+                )}
+                {tab === "administrators" && adminEditor === null && (
+                  <button
+                    type="button"
+                    className="teacher-button primary"
+                    disabled={busy || !extras.available}
+                    onClick={() => setAdminEditor("")}
+                  >
+                    <Plus size={18} aria-hidden="true" />
+                    Назначить
+                  </button>
+                )}
+              </div>
+            )}
           {loadError && (
             <p className="teacher-inline-error" role="status">
               Не удалось обновить данные. Показана последняя версия.{" "}
@@ -1198,6 +1211,9 @@ export function TeacherPanel({
                 <AttendanceRegister students={data.students} />
               )}
               {tab === "homework" && <HomeworkBoard editable />}
+              {tab === "remarks" && teacher && (
+                <RemarksBoard students={data.students} />
+              )}
               {tab === "security" && actor && teacher && (
                 <SecurityPanel actor={actor} students={data.students} />
               )}
