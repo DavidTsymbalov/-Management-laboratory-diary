@@ -26,7 +26,7 @@ export function SiteFooter() {
     return () => video.removeEventListener("loadeddata", play);
   }, [pathname]);
 
-  if (pathname === "/") return null;
+  if (pathname === "/" || /^\/(forma|BaseOOO)\/?$/.test(pathname)) return null;
 
   return (
     <footer className="uc-footer-video mt-0 shrink-0">

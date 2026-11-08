@@ -11,8 +11,9 @@ import { cloudError } from "@/lib/supabase";
 import { PasswordInput } from "@/components/ui/password-input";
 import { FeedbackToast, type Feedback } from "@/components/ui/feedback-toast";
 import { MfaForm } from "@/components/dashboard/mfa-form";
-export function StaffLogin({ role }: { role: "teacher" | "admin" | "csa" }) {
+export function StaffLogin({ role, destination }: { role: "teacher" | "admin" | "csa"; destination?: string }) {
   const router = useRouter();
+  const dashboard = destination ?? `/${role}/dashboard/`;
   const [login, setLogin] = useState(role === "csa" ? "csa" : "");
   const [password, setPassword] = useState("");
   const [account, setAccount] = useState<CloudRole | null>(null);
@@ -27,7 +28,7 @@ export function StaffLogin({ role }: { role: "teacher" | "admin" | "csa" }) {
         if (!active) return;
         if (current?.role === role) {
           if (current.requiresMfa) setAccount(current);
-          else router.replace(`/${role}/dashboard/`);
+          else router.replace(dashboard);
         }
         setReady(true);
       })
@@ -40,7 +41,7 @@ export function StaffLogin({ role }: { role: "teacher" | "admin" | "csa" }) {
     return () => {
       active = false;
     };
-  }, [role, router]);
+  }, [role, router, dashboard]);
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (locked.current) return;
@@ -55,7 +56,7 @@ export function StaffLogin({ role }: { role: "teacher" | "admin" | "csa" }) {
       const current = await signInCloud(login, password, role);
       setPassword("");
       if (current?.requiresMfa) setAccount(current);
-      else router.push(`/${role}/dashboard/`);
+      else router.push(dashboard);
     } catch (error) {
       setFeedback({ type: "error", message: cloudError(error) });
     } finally {
@@ -82,7 +83,7 @@ export function StaffLogin({ role }: { role: "teacher" | "admin" | "csa" }) {
             onVerified={async () => {
               const current = await getCloudRole();
               if (current?.role === role && !current.requiresMfa)
-                router.replace(`/${role}/dashboard/`);
+                router.replace(dashboard);
               else throw new Error("Не удалось подтвердить доступ.");
             }}
           />

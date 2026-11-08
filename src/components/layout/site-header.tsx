@@ -21,6 +21,7 @@ const baseLinks = [
 export function SiteHeader() {
   const pathname = usePathname();
   const onHome = pathname === "/";
+  const onEnrollment = pathname === "/forma" || pathname === "/forma/";
   const router = useRouter();
   const [account, setAccount] = useState<CloudRole | null>(null);
   const [ready, setReady] = useState(false);
@@ -116,7 +117,7 @@ export function SiteHeader() {
           <nav
             className={cn(
               "header-navigation col-span-2 grid w-full items-center gap-2 sm:col-span-1 sm:flex sm:justify-end",
-              account || !ready
+              account || !ready || onEnrollment
                 ? "header-account"
                 : "header-guest grid-cols-[1fr_1fr_1fr_auto_auto]",
             )}
@@ -124,6 +125,7 @@ export function SiteHeader() {
           >
             {ready &&
               !account &&
+              !onEnrollment &&
               baseLinks.map((link, index) => {
                 const href = link.base;
                 const active =

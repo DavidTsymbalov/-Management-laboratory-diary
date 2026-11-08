@@ -1,0 +1,46 @@
+.enrollment-form { max-width: 480px; margin-inline: auto; }
+.enrollment-form .enrollment-intro { margin-top: 16px; max-width: 38ch; color: var(--muted-foreground); font-size: 16px; line-height: 1.65; }
+.enrollment-form form { margin-top: 40px; }
+.enrollment-form .teacher-fields { gap: 24px; }
+.enrollment-form .teacher-field { font-size: 14px; }
+.enrollment-form .teacher-field input { font-size: 16px; }
+.enrollment-form .teacher-button { margin-top: 8px; font-size: 14px; }
+.enrollment-form .enrollment-privacy { margin-top: 16px; }
+.enrollment-honeypot { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.enrollment-confirmation { display: grid; justify-items: start; gap: 24px; padding-block: 32px 80px; }
+.enrollment-confirmation p { color: var(--muted-foreground); font-size: 16px; }
+.enrollment-inbox { max-width: 1120px; margin-inline: auto; }
+.enrollment-inbox-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+.enrollment-inbox-heading .teacher-hint { margin-top: 12px; }
+.enrollment-inbox-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-block: 40px 24px; }
+.enrollment-search { display: flex; align-items: center; position: relative; width: min(440px,100%); }
+.enrollment-search > svg { position: absolute; left: 14px; pointer-events: none; }
+.enrollment-search input { padding-left: 44px; }
+.enrollment-inbox-toolbar > p { flex-shrink: 0; }
+.enrollment-table { border-collapse: collapse; width: 100%; text-align: left; table-layout: fixed; }
+.enrollment-table th { color: var(--muted-foreground); font-size: 12px; font-weight: 400; }
+.enrollment-table th, .enrollment-table td { padding: 16px 16px 16px 0; border-bottom: 1px solid var(--border); vertical-align: middle; overflow-wrap: anywhere; }
+.enrollment-table th:nth-child(1), .enrollment-table th:nth-child(2) { width: 22%; }
+.enrollment-table th:nth-child(3) { width: 36%; }
+.enrollment-table th:last-child, .enrollment-table td:last-child { padding-right: 0; }
+.enrollment-table time { color: var(--muted-foreground); font-size: 12px; }
+.enrollment-telegram { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.enrollment-telegram a { min-width: 0; text-decoration: underline; text-underline-offset: 4px; }
+.enrollment-telegram button { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; }
+.enrollment-pagination { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 24px; }
+.enrollment-access { max-width: 440px; margin-inline: auto; }
+.enrollment-access > h1, .enrollment-access > .teacher-button { margin-top: 24px; }
+.enrollment-role-switch { display: flex; gap: 8px; margin-block: 24px 32px; }
+@media (max-width: 639px) {
+  .enrollment-form form { margin-top: 32px; }
+  .enrollment-inbox-heading { flex-wrap: wrap; }
+  .enrollment-inbox-toolbar { align-items: flex-start; flex-direction: column; gap: 12px; margin-top: 32px; }
+  .enrollment-search { width: 100%; }
+  .enrollment-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .enrollment-table, .enrollment-table tbody { display: block; }
+  .enrollment-table tr { display: grid; gap: 8px; border-bottom: 1px solid var(--border); padding-block: 20px; }
+  .enrollment-table td { display: grid; grid-template-columns: 88px minmax(0,1fr); align-items: baseline; gap: 12px; border: 0; padding: 0; }
+  .enrollment-table td::before { content: attr(data-label); color: var(--muted-foreground); font-size: 12px; }
+  .enrollment-table td[data-label="Telegram"] { align-items: center; }
+  .enrollment-telegram { margin-block: -6px; }
+}
