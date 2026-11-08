@@ -5,6 +5,7 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { PixelTransition } from "@/components/motion/pixel-transition";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+import { publicUrl } from "@/lib/public-url";
 import "./globals.css";
 
 /**
@@ -21,6 +22,14 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   referrer: "strict-origin-when-cross-origin",
+  icons: {
+    icon: [
+      { url: publicUrl("/brand/lbm-icon-32-v2.png"), sizes: "32x32", type: "image/png" },
+      { url: publicUrl("/brand/lbm-icon-16-v2.png"), sizes: "16x16", type: "image/png" },
+    ],
+    shortcut: publicUrl("/brand/lbm-favicon-v2.ico"),
+    apple: [{ url: publicUrl("/brand/lbm-apple-icon-v2.png"), sizes: "180x180", type: "image/png" }],
+  },
   title: {
     default: "Management Laboratory",
     template: "%s · Management Laboratory",
@@ -78,6 +87,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        <link rel="mask-icon" href={publicUrl("/brand/lbm-safari-mask-v2.svg")} color="#58677a" />
         <style dangerouslySetInnerHTML={{ __html: fontFaceCss }} />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
