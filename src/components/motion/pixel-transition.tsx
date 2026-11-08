@@ -16,11 +16,12 @@ const COVER_MS = 360;
 const HOLD_MS = 60;
 const HOLD_AFTER_NAV_MS = 140;
 const REVEAL_MS = 400;
-const BOOT_HOLD_MS = 120;
+const BOOT_HOLD_MS = 650;
+const BOOT_REVEAL_MS = 1150;
 /** Сколько едет текст слева/справа (должно ≥ CSS animation) */
-const INTRO_SLIDE_MS = 1100;
+const INTRO_SLIDE_MS = 2300;
 /** Пауза уже сложившимся текстом — только потом пиксели */
-const INTRO_HOLD_MS = 120;
+const INTRO_HOLD_MS = 850;
 
 type Phase = "boot" | "idle" | "intro" | "cover" | "hold" | "reveal";
 
@@ -85,7 +86,7 @@ export function PixelTransition() {
   const pendingHref = useRef<string | null>(null);
   const timers = useRef<number[]>([]);
   const busyRef = useRef(false);
-  const revealRef = useRef<() => void>(() => undefined);
+  const revealRef = useRef<(initial?: boolean) => void>(() => undefined);
   const bootedRef = useRef(false);
   const homeIntroRef = useRef(false);
   const cellCountRef = useRef(cellCount);
@@ -178,13 +179,14 @@ export function PixelTransition() {
     goIdleRef.current = goIdle;
   }, [cellCount, goIdle]);
 
-  const runReveal = useCallback(() => {
+  const runReveal = useCallback((initial = false) => {
+    const duration = initial ? BOOT_REVEAL_MS : REVEAL_MS;
     clearTimers();
     busyRef.current = true;
     setPhase("reveal");
     setFilled(allOn(true, cellCount));
-    schedule(() => paintWave(false, orderReveal, REVEAL_MS), 16);
-    schedule(goIdle, REVEAL_MS + 48);
+    schedule(() => paintWave(false, orderReveal, duration), initial ? 40 : 16);
+    schedule(goIdle, duration + (initial ? 180 : 48));
   }, [cellCount, clearTimers, goIdle, orderReveal, paintWave, schedule]);
 
   useEffect(() => {
@@ -261,13 +263,13 @@ export function PixelTransition() {
       const toPixels = window.setTimeout(() => {
         setPhase("hold");
         setFilled(allOn(true, cellCountRef.current));
-        schedule(() => revealRef.current(), 60);
+        schedule(() => revealRef.current(true), 220);
       }, INTRO_SLIDE_MS + INTRO_HOLD_MS);
 
       const safety = window.setTimeout(() => {
         busyRef.current = false;
         markIntroDone();
-      }, INTRO_SLIDE_MS + INTRO_HOLD_MS + REVEAL_MS + 2500);
+      }, INTRO_SLIDE_MS + INTRO_HOLD_MS + BOOT_REVEAL_MS + 2500);
 
       return () => {
         window.cancelAnimationFrame(frame);
@@ -284,12 +286,12 @@ export function PixelTransition() {
     });
 
     const open = window.setTimeout(() => {
-      revealRef.current();
+      revealRef.current(true);
     }, BOOT_HOLD_MS);
 
     const safety = window.setTimeout(() => {
       busyRef.current = false;
-    }, BOOT_HOLD_MS + REVEAL_MS + 2000);
+    }, BOOT_HOLD_MS + BOOT_REVEAL_MS + 2000);
 
     return () => {
       window.cancelAnimationFrame(frame);

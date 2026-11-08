@@ -193,15 +193,15 @@ body {
 }
 
 .pixel-intro-from-left {
-  animation: pixel-intro-in-left .9s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both;
+  animation: pixel-intro-in-left 2s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
 }
 
 .pixel-intro-from-right {
-  animation: pixel-intro-in-right .9s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both;
+  animation: pixel-intro-in-right 2s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
 }
 
 .pixel-intro-delay {
-  animation-delay: 0.14s;
+  animation-delay: 0.28s;
 }
 
 /* После анимации — без повторного заезда */
