@@ -42,7 +42,10 @@ import {
   type EmojiPeer,
   type ReactionEmoji,
 } from "@/lib/emoji-reactions";
-import { EMOJI_BURST_INTERVAL_MS } from "@/lib/emoji-burst-layout";
+import {
+  EMOJI_BURST_INTERVAL_MS,
+  emojiBurstVariant,
+} from "@/lib/emoji-burst-layout";
 import {
   ReceivedEmojiPlayback,
   type ReceivedReaction,
@@ -159,6 +162,7 @@ export function StudentChats({
     new Map<string, { peer: string; message: ReceivedReaction }>(),
   );
   const lastLaunch = useRef(-Infinity);
+  const burstSequence = useRef(0);
   const [playbackVersion, setPlaybackVersion] = useState(0);
   const [notice, setNotice] = useState<{
     id: number;
@@ -373,11 +377,13 @@ export function StudentChats({
         if (!message?.emoji || !player.start(peerId, message.id)) return;
         lastLaunch.current = performance.now();
         const id = crypto.randomUUID();
+        const variant = emojiBurstVariant(burstSequence.current++);
         runningBursts.current.set(id, { peer: peerId, message });
         setBursts((current) => [
           ...current,
           {
             id,
+            variant,
             peer: peerId,
             message,
             emoji: message.emoji!,

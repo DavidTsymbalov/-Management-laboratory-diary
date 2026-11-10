@@ -1253,8 +1253,17 @@ body[data-emoji-thread="1"] { overflow: hidden; }
 
 /* A finite burst, with transform/opacity only; no page shake or flashing layer. */
 .emoji-burst { position: fixed; inset: 0; z-index: 1000; overflow: hidden; pointer-events: none; }
-.emoji-burst > span { position: absolute; display: block; font-size: var(--burst-size); line-height: 1; animation: emoji-flight var(--burst-duration) cubic-bezier(.25,.4,.3,1) var(--burst-delay) both; will-change: transform, opacity; }
-@keyframes emoji-flight { 0% { opacity: 0; transform: translate(-50%,-50%) scale(.5) rotate(0); } 8% { opacity: 1; } 72% { opacity: .95; transform: translate(calc(var(--burst-mid-x) - 50%),calc(var(--burst-mid-y) - 50%)) scale(1) rotate(var(--burst-mid-spin)); } 100% { opacity: 0; transform: translate(calc(var(--burst-x) - 50%),calc(var(--burst-y) - 50%)) scale(.96) rotate(var(--burst-spin)); } }
+.emoji-burst > span { position: absolute; display: block; font-size: var(--burst-size); line-height: 1; animation: emoji-flight var(--burst-duration) linear var(--burst-delay) both; will-change: transform, opacity; }
+.emoji-burst[data-variant="swirl"] { --burst-via-scale: .92; }
+.emoji-burst[data-variant="fountain"] { --burst-via-scale: 1.08; }
+@keyframes emoji-flight {
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(.5) rotate(0); }
+  8% { opacity: 1; }
+  42% { transform: translate(calc(var(--burst-via-x) - 50%),calc(var(--burst-via-y) - 50%)) scale(var(--burst-via-scale,1)) rotate(var(--burst-via-spin)); }
+  80% { transform: translate(calc(var(--burst-mid-x) - 50%),calc(var(--burst-mid-y) - 50%)) scale(1) rotate(var(--burst-mid-spin)); }
+  88% { opacity: .95; }
+  100% { opacity: 0; transform: translate(calc(var(--burst-x) - 50%),calc(var(--burst-y) - 50%)) scale(.94) rotate(var(--burst-spin)); }
+}
 .emoji-notification { position: fixed; bottom: max(20px,env(safe-area-inset-bottom)); right: 20px; z-index: 1100; display: flex; align-items: center; max-width: min(380px,calc(100vw - 32px)); background: var(--background); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 32px #0003; }
 .emoji-notification > button:first-child { display: flex; align-items: center; gap: 12px; padding: 16px; text-align: left; min-width: 0; }
 .emoji-notification > button:first-child > span:first-child { font-size: 30px; }

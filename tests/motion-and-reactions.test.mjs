@@ -64,6 +64,7 @@ test("emoji allowlist and message reconciliation preserve order without mutating
 const {
   EMOJI_BURST_INTERVAL_MS,
   emojiBurstLayout,
+  emojiBurstVariant,
   EMOJI_BURST_DURATION_MS,
   EMOJI_BURST_LIFETIME_MS,
 } = module("../src/lib/emoji-burst-layout.ts");
@@ -77,30 +78,74 @@ test("large, slow emoji reach all screen regions on phone, landscape and desktop
     [2560, 1440],
   ]) {
     const origin = { x: width * 0.85, y: height * 0.9 };
-    const particles = emojiBurstLayout(width, height, origin);
-    assert.equal(particles.length, 48);
-    const targets = particles.map((p) => ({
-      x: origin.x + p.x,
-      y: origin.y + p.y,
-    }));
-    assert.ok(Math.min(...targets.map((p) => p.x)) < width * 0.3);
-    assert.ok(Math.max(...targets.map((p) => p.x)) > width * 0.7);
-    assert.ok(Math.min(...targets.map((p) => p.y)) < height * 0.3);
-    assert.ok(Math.max(...targets.map((p) => p.y)) > height * 0.7);
-    for (const [index, p] of particles.entries()) {
-      assert.ok(p.size >= 48 && p.size <= 96);
-      assert.ok(
-        targets[index].x >= p.size / 2 &&
-          targets[index].x <= width - p.size / 2,
-      );
-      assert.ok(
-        targets[index].y >= p.size / 2 &&
-          targets[index].y <= height - p.size / 2,
-      );
-      assert.ok(EMOJI_BURST_DURATION_MS + p.delay < EMOJI_BURST_LIFETIME_MS);
+    for (const variant of ["scatter", "swirl", "fountain"]) {
+      const particles = emojiBurstLayout(width, height, origin, variant);
+      assert.equal(particles.length, 48);
+      const targets = particles.map((p) => ({
+        x: origin.x + p.x,
+        y: origin.y + p.y,
+      }));
+      assert.ok(Math.min(...targets.map((p) => p.x)) < width * 0.3);
+      assert.ok(Math.max(...targets.map((p) => p.x)) > width * 0.7);
+      assert.ok(Math.min(...targets.map((p) => p.y)) < height * 0.3);
+      assert.ok(Math.max(...targets.map((p) => p.y)) > height * 0.7);
+      for (const [index, p] of particles.entries()) {
+        assert.ok(p.size >= 48 && p.size <= 96);
+        assert.ok(
+          targets[index].x >= p.size / 2 &&
+            targets[index].x <= width - p.size / 2,
+        );
+        assert.ok(
+          targets[index].y >= p.size / 2 &&
+            targets[index].y <= height - p.size / 2,
+        );
+        assert.ok(EMOJI_BURST_DURATION_MS + p.delay < EMOJI_BURST_LIFETIME_MS);
+        for (const [x, y] of [
+          [p.viaX, p.viaY],
+          [p.midX, p.midY],
+        ]) {
+          assert.ok(Number.isFinite(x) && Number.isFinite(y));
+          assert.ok(
+            origin.x + x >= p.size / 2 &&
+              origin.x + x <= width - p.size / 2,
+          );
+          assert.ok(
+            origin.y + y >= p.size / 2 &&
+              origin.y + y <= height - p.size / 2,
+          );
+        }
+      }
     }
   }
-  assert.ok(EMOJI_BURST_DURATION_MS >= 3500);
+  assert.ok(EMOJI_BURST_DURATION_MS >= 3000 && EMOJI_BURST_DURATION_MS < 3500);
+  const lastParticleEnds =
+    EMOJI_BURST_DURATION_MS +
+    Math.max(
+      ...emojiBurstLayout(390, 844, { x: 195, y: 500 }).map((p) => p.delay),
+    );
+  assert.ok(
+    EMOJI_BURST_LIFETIME_MS - lastParticleEnds <= 100,
+    "remove the layer promptly after the final fade",
+  );
+});
+test("three distinct full-screen flights alternate without immediate repeats", () => {
+  const variants = Array.from({ length: 9 }, (_, i) => emojiBurstVariant(i));
+  assert.deepEqual(variants, [
+    "scatter", "swirl", "fountain",
+    "scatter", "swirl", "fountain",
+    "scatter", "swirl", "fountain",
+  ]);
+  const paths = variants.slice(0, 3).map((variant) =>
+    emojiBurstLayout(390, 844, { x: 195, y: 500 }, variant),
+  );
+  for (let a = 0; a < paths.length; a++)
+    for (let b = a + 1; b < paths.length; b++)
+      assert.ok(
+        paths[a].filter((p, i) =>
+          Math.hypot(p.viaX - paths[b][i].viaX, p.viaY - paths[b][i].viaY) > 40,
+        ).length >= 24,
+        "at least half the emoji follow visibly different routes",
+      );
 });
 test("22 unread emoji produce 22 ordered animations, each completion advances only its own read boundary", () => {
   const player = new ReceivedEmojiPlayback();

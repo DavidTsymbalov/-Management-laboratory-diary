@@ -1,11 +1,12 @@
 "use client";
-import { memo, useEffect, type CSSProperties } from "react";
+import { memo, useEffect, useMemo, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import type { ReactionEmoji } from "@/lib/emoji-reactions";
 import {
   emojiBurstLayout,
   EMOJI_BURST_DURATION_MS,
   EMOJI_BURST_LIFETIME_MS,
+  type EmojiBurstVariant,
 } from "@/lib/emoji-burst-layout";
 export type EmojiBurstEvent = {
   id: string;
@@ -15,6 +16,7 @@ export type EmojiBurstEvent = {
   y: number;
   width: number;
   height: number;
+  variant: EmojiBurstVariant;
 };
 export const EmojiBurst = memo(function EmojiBurst({
   event,
@@ -30,10 +32,14 @@ export const EmojiBurst = memo(function EmojiBurst({
     );
     return () => clearTimeout(timer);
   }, [event.id, onComplete]);
+  const { width, height, x, y, variant } = event;
+  const particles = useMemo(
+    () => emojiBurstLayout(width, height, { x, y }, variant),
+    [width, height, x, y, variant],
+  );
   if (typeof document === "undefined") return null;
-  const particles = emojiBurstLayout(event.width, event.height, event);
   return createPortal(
-    <div className="emoji-burst" aria-hidden="true">
+    <div className="emoji-burst" data-variant={variant} aria-hidden="true">
       {particles.map((particle, index) => (
         <span
           key={index}
@@ -43,10 +49,13 @@ export const EmojiBurst = memo(function EmojiBurst({
               top: event.y,
               "--burst-x": `${particle.x}px`,
               "--burst-y": `${particle.y}px`,
-              "--burst-mid-x": `${particle.x * 0.9}px`,
-              "--burst-mid-y": `${particle.y * 0.9}px`,
+              "--burst-via-x": `${particle.viaX}px`,
+              "--burst-via-y": `${particle.viaY}px`,
+              "--burst-mid-x": `${particle.midX}px`,
+              "--burst-mid-y": `${particle.midY}px`,
               "--burst-spin": `${particle.spin}deg`,
-              "--burst-mid-spin": `${particle.spin * 0.85}deg`,
+              "--burst-via-spin": `${particle.spin * 0.4}deg`,
+              "--burst-mid-spin": `${particle.spin * 0.8}deg`,
               "--burst-delay": `${particle.delay}ms`,
               "--burst-size": `${particle.size}px`,
               "--burst-duration": `${EMOJI_BURST_DURATION_MS}ms`,
