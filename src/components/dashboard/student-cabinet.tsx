@@ -13,10 +13,12 @@ import {
   Award,
   BookOpen,
   MessageCircle,
+  Presentation,
   RefreshCw,
   TrendingUp,
 } from "lucide-react";
 import { AchievementBadge } from "@/components/ui/achievement-badge";
+import { LessonBoard } from "@/components/dashboard/lesson-board";
 import { HomeworkBoard } from "@/components/dashboard/homework-board";
 import { StudentRemarks } from "@/components/dashboard/student-remarks";
 import { StudentChats } from "@/components/social/student-chats";
@@ -45,7 +47,7 @@ export function StudentCabinet() {
   const [error, setError] = useState<string | null>(null);
   const [rankError, setRankError] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const [tab, setTab] = useState<"diary" | "chats">("diary");
+  const [tab, setTab] = useState<"diary" | "lessons" | "chats">("diary");
   const [unread, setUnread] = useState(0);
   useEffect(() => {
     let active = true;
@@ -92,7 +94,7 @@ export function StudentCabinet() {
     () => data?.students.find((student) => student.id === studentId) ?? null,
     [data, studentId],
   );
-  function choose(next: "diary" | "chats") {
+  function choose(next: "diary" | "lessons" | "chats") {
     startTransition(() => {
       addTransitionType("student-tab");
       setTab(next);
@@ -138,6 +140,14 @@ export function StudentCabinet() {
         >
           <BookOpen size={18} aria-hidden="true" />
           Дневник
+        </button>
+        <button
+          type="button"
+          aria-current={tab === "lessons" ? "page" : undefined}
+          onClick={() => choose("lessons")}
+        >
+          <Presentation size={18} aria-hidden="true" />
+          Занятия
         </button>
         <button
           type="button"
@@ -231,6 +241,7 @@ export function StudentCabinet() {
               )}
             </section>
           </section>
+          {tab === "lessons" && <LessonBoard />}
           <StudentChats
             key={studentId}
             studentId={studentId}

@@ -30,6 +30,11 @@ test("static CSP hashes every exact inline script and restricts script attribute
     policy,
     /connect-src 'self' https:\/\/pnpanexhudlalavcevck.supabase.co wss:\/\/pnpanexhudlalavcevck.supabase.co/,
   );
+  assert.match(
+    policy,
+    /frame-src https:\/\/pnpanexhudlalavcevck.supabase.co\/storage\/v1\/object\/sign\/lesson-presentations\/;/,
+  );
+  assert.match(policy, /object-src 'none'/);
   assert.equal(hardenHtml(result), result, "idempotent postbuild");
   assert.throws(() => hardenHtml(html, "http://example.test"), /HTTPS/);
 });

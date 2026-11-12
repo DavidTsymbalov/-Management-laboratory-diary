@@ -29,7 +29,7 @@ export function hardenHtml(
     "font-src 'self'",
     "media-src 'self' blob:",
     "object-src 'none'",
-    "frame-src 'none'",
+    `frame-src ${api.origin}/storage/v1/object/sign/lesson-presentations/`,
     "base-uri 'self'",
     "form-action 'self'",
     "upgrade-insecure-requests",

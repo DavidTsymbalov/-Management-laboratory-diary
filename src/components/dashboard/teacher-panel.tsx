@@ -21,6 +21,7 @@ import {
   LogOut,
   MessageSquareWarning,
   Plus,
+  Presentation,
   Search,
   ShieldCheck,
   Shield,
@@ -50,6 +51,7 @@ import { cloudError } from "@/lib/supabase";
 import { StatsGrid } from "@/components/dashboard/stats-grid";
 import { TeacherCharts } from "@/components/dashboard/teacher-charts";
 import { AdministratorSettings } from "@/components/dashboard/administrator-settings";
+import { LessonBoard } from "@/components/dashboard/lesson-board";
 import { HomeworkBoard } from "@/components/dashboard/homework-board";
 import { AttendanceRegister } from "@/components/dashboard/attendance-register";
 import { StudentRemarks } from "@/components/dashboard/student-remarks";
@@ -64,6 +66,7 @@ type Tab =
   | "remarks"
   | "security"
   | "attendance"
+  | "lessons"
   | "homework"
   | "overview"
   | "students"
@@ -73,6 +76,7 @@ type Tab =
 const destinations = [
   { id: "overview", label: "Обзор", icon: BarChart3 },
   { id: "attendance", label: "Классный журнал", icon: CalendarCheck },
+  { id: "lessons", label: "Занятия и материалы", icon: Presentation },
   { id: "homework", label: "Домашние задания", icon: BookOpen },
   { id: "students", label: "Ученики", icon: Users },
   { id: "awards", label: "Награды", icon: Award },
@@ -448,7 +452,8 @@ export function TeacherPanel({
                 teacher ||
                 (item.id !== "administrators" &&
                   item.id !== "security" &&
-                  item.id !== "remarks"),
+                  item.id !== "remarks" &&
+                  item.id !== "lessons"),
             )
             .map((item) => (
               <button
@@ -1210,6 +1215,7 @@ export function TeacherPanel({
               {tab === "attendance" && (
                 <AttendanceRegister students={data.students} />
               )}
+              {tab === "lessons" && teacher && <LessonBoard editable />}
               {tab === "homework" && <HomeworkBoard editable />}
               {tab === "remarks" && teacher && (
                 <RemarksBoard students={data.students} />
