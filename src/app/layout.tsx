@@ -23,11 +23,14 @@ const inter = Inter({
 export const metadata: Metadata = {
   referrer: "strict-origin-when-cross-origin",
   icons: {
+    // Native media selection follows Safari/macOS, independently of the site toggle.
     icon: [
-      { url: publicUrl("/brand/lbm-dark-32-v3.png"), sizes: "32x32", type: "image/png" },
-      { url: publicUrl("/brand/lbm-dark-16-v3.png"), sizes: "16x16", type: "image/png" },
+      ...(["light", "dark"] as const).flatMap((scheme) => [
+        { url: publicUrl(`/brand/lbm-system-${scheme}-v4.ico`), sizes: "16x16 32x32 48x48 64x64", type: "image/x-icon", media: `(prefers-color-scheme: ${scheme})` },
+        { url: publicUrl(`/brand/lbm-system-${scheme}-32-v4.png`), sizes: "32x32", type: "image/png", media: `(prefers-color-scheme: ${scheme})` },
+        { url: publicUrl(`/brand/lbm-system-${scheme}-16-v4.png`), sizes: "16x16", type: "image/png", media: `(prefers-color-scheme: ${scheme})` },
+      ]),
     ],
-    shortcut: publicUrl("/brand/lbm-dark-v3.ico"),
     apple: [{ url: publicUrl("/brand/lbm-dark-apple-v3.png"), sizes: "180x180", type: "image/png" }],
   },
   title: {
@@ -87,7 +90,6 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <link rel="mask-icon" href={publicUrl("/brand/lbm-safari-mask-v3.svg")} color="#e5dac3" />
         <style dangerouslySetInnerHTML={{ __html: fontFaceCss }} />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
