@@ -24,11 +24,11 @@ export const metadata: Metadata = {
   referrer: "strict-origin-when-cross-origin",
   icons: {
     icon: [
-      { url: publicUrl("/brand/lbm-icon-32-v2.png"), sizes: "32x32", type: "image/png" },
-      { url: publicUrl("/brand/lbm-icon-16-v2.png"), sizes: "16x16", type: "image/png" },
+      { url: publicUrl("/brand/lbm-dark-32-v3.png"), sizes: "32x32", type: "image/png" },
+      { url: publicUrl("/brand/lbm-dark-16-v3.png"), sizes: "16x16", type: "image/png" },
     ],
-    shortcut: publicUrl("/brand/lbm-favicon-v2.ico"),
-    apple: [{ url: publicUrl("/brand/lbm-apple-icon-v2.png"), sizes: "180x180", type: "image/png" }],
+    shortcut: publicUrl("/brand/lbm-dark-v3.ico"),
+    apple: [{ url: publicUrl("/brand/lbm-dark-apple-v3.png"), sizes: "180x180", type: "image/png" }],
   },
   title: {
     default: "Management Laboratory",
@@ -87,7 +87,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <link rel="mask-icon" href={publicUrl("/brand/lbm-safari-mask-v2.svg")} color="#58677a" />
+        <link rel="mask-icon" href={publicUrl("/brand/lbm-safari-mask-v3.svg")} color="#e5dac3" />
         <style dangerouslySetInnerHTML={{ __html: fontFaceCss }} />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>

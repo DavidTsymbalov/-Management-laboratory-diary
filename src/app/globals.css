@@ -1685,3 +1685,10 @@ body[data-emoji-thread="1"] { overflow: hidden; }
   .lesson-preview { padding: 12px; }
   .lesson-preview-heading { flex-wrap: wrap; gap: 8px; }
 }
+
+/* Supplied LBM artwork switches with the site theme, including before hydration. */
+.site-brand-mark { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; flex-shrink: 0; }
+.site-brand-mark img { width: 48px; height: 48px; object-fit: contain; }
+.site-brand-dark { display: none; }
+html.dark .site-brand-light { display: none; }
+html.dark .site-brand-dark { display: block; }

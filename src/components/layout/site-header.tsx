@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+import { publicUrl } from "@/lib/public-url";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
@@ -94,17 +96,28 @@ export function SiteHeader() {
         )}
       >
         <div className="site-header-inner mx-auto grid min-h-24 w-full max-w-[1400px] grid-cols-[auto_1fr] items-center gap-x-3 px-4 sm:h-16 sm:min-h-0 sm:grid-cols-[1fr_auto_1fr] sm:gap-3 sm:px-6 lg:px-10">
-          <div className="flex h-12 items-center sm:h-auto">
-            <span
-              className={cn(
-                "inline-block h-3 w-5 border",
-                onHome
-                  ? "border-[var(--uc-cream)] bg-[var(--uc-cream)]"
-                  : "border-foreground bg-foreground",
-              )}
-              aria-hidden
+          <Link
+            href="/"
+            className="site-brand-mark"
+            aria-label="Главная — Management Laboratory"
+          >
+            <Image
+              className="site-brand-light"
+              src={publicUrl("/brand/lbm-light-v3.png")}
+              width={48}
+              height={48}
+              alt="LBM"
+              unoptimized
             />
-          </div>
+            <Image
+              className="site-brand-dark"
+              src={publicUrl("/brand/lbm-dark-v3.png")}
+              width={48}
+              height={48}
+              alt="LBM"
+              unoptimized
+            />
+          </Link>
 
           <Link
             href="/"

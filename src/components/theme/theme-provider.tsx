@@ -10,6 +10,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
+import { publicUrl } from "@/lib/public-url";
 import { pixelOrder, squarePixelGrid } from "@/lib/pixel-grid";
 export type Theme = "light" | "dark";
 type ThemeContextValue = {
@@ -26,9 +27,31 @@ type Mosaic = {
 };
 const STORAGE_KEY = "ml-theme";
 const ThemeContext = createContext<ThemeContextValue | null>(null);
+function syncThemeIcons(theme: Theme) {
+  function set(link: Element, name: string, value: string) {
+    if (link.getAttribute(name) !== value) link.setAttribute(name, value);
+  }
+  // Match the site's selected theme rather than the operating system's theme.
+  for (const icon of document.querySelectorAll<HTMLLinkElement>(
+    'link[rel~="icon"]',
+  )) {
+    const size = icon.sizes.contains("16x16") ? 16 : 32;
+    set(icon, "type", "image/png");
+    set(icon, "sizes", `${size}x${size}`);
+    set(icon, "href", publicUrl(`/brand/lbm-${theme}-${size}-v3.png`));
+  }
+  for (const icon of document.querySelectorAll(
+    'link[rel="apple-touch-icon"]',
+  )) {
+    set(icon, "href", publicUrl(`/brand/lbm-${theme}-apple-v3.png`));
+  }
+  const mask = document.querySelector('link[rel="mask-icon"]');
+  if (mask) set(mask, "color", theme === "dark" ? "#e5dac3" : "#080a0d");
+}
 function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle("dark", theme === "dark");
   document.documentElement.style.colorScheme = theme;
+  syncThemeIcons(theme);
   document
     .querySelector('meta[name="theme-color"]')
     ?.setAttribute("content", theme === "dark" ? "#080a0d" : "#ffffff");
@@ -103,6 +126,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       setThemeState(next);
     }, 0);
     return () => clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    // Next can insert or replace metadata after hydration and route navigation.
+    const sync = () => syncThemeIcons(domTheme());
+    const observer = new MutationObserver(sync);
+    observer.observe(document.head, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["href", "rel", "sizes"],
+    });
+    sync();
+    return () => observer.disconnect();
   }, []);
   useEffect(() => {
     const media = matchMedia("(prefers-reduced-motion: reduce)");
